@@ -1,0 +1,4 @@
+*.md
+
+!PLAN.md
+!README.md
