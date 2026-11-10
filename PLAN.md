@@ -145,6 +145,36 @@ Use compatible, documented package versions. Check whether SUMO and
 TraCI are installed and accessible before writing simulation code. Do
 not assume SUMO is installed or that its executable is already on PATH.
 
+### 4.1 Critical evaluation of current technologies
+
+The report must critically evaluate existing approaches, not just list
+tools. Summarise and compare:
+
+-   **Fixed-time control:** simple, predictable and easy to audit, but
+    cannot respond to changing demand; it is the required baseline.
+-   **Actuated control:** responds to detector data using hand-written
+    rules, but has limited anticipation and can be brittle under unusual
+    demand patterns.
+-   **RL-based adaptive control:** learns a policy from interaction and
+    can use rich state, but is sample-inefficient and sensitive to
+    reward design, state representation and training stability.
+-   **SL traffic forecasting:** regression on recent observations can
+    provide short-term anticipation, but prediction errors can propagate
+    into control decisions.
+-   **Hybrid SL + RL:** uses predictions as additional state; the
+    research question is whether this improves control, not an assumed
+    outcome.
+
+Justify the chosen stack (SUMO, TraCI, scikit-learn, PyTorch) against
+alternatives. For example, SUMO is open-source, microscopic,
+Python-controllable and reproducible; CityFlow is faster but less
+feature-rich, while VISSIM is commercial. Justify regression rather than
+classification because the target is a continuous vehicle count, and
+justify Q-Learning/DQN because they suit discrete signal actions and
+differ in their ability to handle continuous state.
+
+Use references and report this comparison in the related-work section.
+
 ------------------------------------------------------------------------
 
 ## 5. Overall System Workflow
@@ -303,6 +333,97 @@ Suggested files:
 Avoid committing huge generated datasets or model checkpoints to version
 control unless required. Document how to regenerate them.
 
+### 6.5 Data quality and missing-data handling
+
+SUMO can produce a complete set of rows, but the supervised-learning
+dataset still contains structural missingness. Handle it explicitly.
+
+**Sources of missingness**
+
+-   An empty approach has no meaningful mean speed. TraCI commonly
+    returns a sentinel such as `-1` for an empty lane or edge; verify the
+    behaviour for the installed SUMO version. Do not treat this as a
+    real speed.
+-   Vehicle count and queue length of zero are valid observations, not
+    missing values. Do not drop zero-vehicle rows.
+-   The last prediction horizon of each simulation run has no valid
+    five-minute-ahead target. The first rows have no lag history.
+-   Failed or partial runs, schema mismatches and CSV gaps are
+    operational failures. Mark them as failed and exclude them; do not
+    impute an entire run.
+
+**Collection policy**
+
+-   Sample on a fixed schedule and write one row per
+    `(simulation_time, direction)` even when no vehicles are present.
+-   Convert sentinel values to `NaN` and add explicit flags such as
+    `no_vehicles` and `sensor_missing`. Do not rely only on automatic
+    missing-value indicators, because the training split may contain no
+    missing values.
+-   Record a run manifest with `run_id`, scenario, seed, status, number
+    of steps and sampling interval.
+
+**Dataset construction**
+
+-   Build the target within each run, for example
+    `target = groupby(run_id).vehicle_count.shift(-HORIZON_STEPS)`,
+    where `HORIZON_STEPS = horizon_seconds / sampling_interval`.
+-   Drop rows whose target is undefined at the end of a run, and drop or
+    explicitly mark the warm-up rows without lag features.
+-   Never impute the target. Only feature columns may be imputed.
+-   Split chronologically before fitting any preprocessing step.
+
+**Preprocessing policy**
+
+-   Fit imputers, scalers and encoders on the training data only, then
+    transform validation and test data with the fitted objects.
+-   Use a documented per-column strategy: for example, median imputation
+    plus a `no_vehicles` flag for mean speed; no imputation for count or
+    queue length; causal forward-fill only where justified.
+-   Keep the same preprocessing pipeline for SL training, hybrid
+    inference and any dashboard or demonstration.
+-   Save the fitted preprocessing pipeline with the selected model.
+
+**Data-quality audit**
+
+Produce a short audit before modelling:
+
+-   missing count and percentage per column;
+-   timestamp continuity and duplicate-row checks;
+-   frequency of zero-vehicle intervals by direction;
+-   target availability per run;
+-   number of failed or excluded runs.
+
+**Optional robustness experiment**
+
+Keep the clean test set as the headline result. On a copy of the
+validation/test features only, inject missingness (for example 5% and
+10% missing completely at random, plus a block dropout simulating a
+failed detector), compare simple strategies such as dropping rows,
+median imputation, forward-fill and k-nearest-neighbour imputation, and
+report the change in MAE/RMSE. Do not inject missingness into the main
+training data or fabricate a dirty dataset. State clearly in the report
+that SUMO output is complete by construction and that the experiment
+tests robustness to sensor/feature loss.
+
+### 6.6 Environment dynamics characterisation
+
+Before RL training, characterise the environment under the fixed-time
+controller:
+
+-   Run the fixed-time baseline across low, medium, high, uneven and
+    changing demand.
+-   Record queue length, waiting time, mean speed and throughput by
+    approach over time.
+-   Check that demand is calibrated: the network should be neither empty
+    nor permanently gridlocked.
+-   Observe queue build-up and recovery, saturation behaviour and
+    whether any approach is starved.
+-   Document the findings and use them to design the state, reward and
+    action space, and to sanity-check RL behaviour.
+
+This is exploratory analysis, not the final controller comparison.
+
 ------------------------------------------------------------------------
 
 ## 7. Supervised Learning Specification
@@ -324,13 +445,24 @@ the chosen design.
 
 ### 7.2 Candidate models
 
-Start with 3--4 models:
+Start with 3--4 individual models:
 
 1.  Linear Regression --- simple baseline.
 2.  Decision Tree Regressor.
 3.  Random Forest Regressor.
 4.  XGBoost Regressor (optional).
 
+Then add one combined model:
+
+5.  Ensemble / blended regressor --- a deliberate combination of the
+    top two tuned models (for example, averaging their predictions or
+    stacking them with a simple meta-learner).
+
+The ensemble is not an extra algorithm added to increase the model
+count. It is the model-combination experiment required by the brief:
+combine models to improve accuracy and reliability. Keep the blend
+simple, evaluate it on the same validation and untouched test data as
+the individual models, and report whether it actually improves results.
 Do not add many algorithms just to increase the model count. Prioritise
 correct evaluation and meaningful comparison.
 
@@ -341,7 +473,7 @@ Because the data is time-dependent:
 -   Split data chronologically into training, validation and test sets.
 -   Do not randomly mix future observations into training.
 -   Fit scalers, imputers and feature transformations on training data
-    only.
+    only; see §6.5 for the missing-data policy.
 -   Ensure each target is genuinely five minutes after its input
     observation.
 -   Avoid using any feature that would only be known after the
@@ -374,12 +506,14 @@ Recommended workload:
 
 1.  Train and evaluate all initial candidates.
 2.  Rank candidates using validation metrics, prioritising MAE/RMSE and
-    considering R².
+    considering R², interpretability and robustness.
 3.  Select the top two candidates for hyperparameter optimisation.
 4.  Tune with a reasonable search budget (Grid Search or Random Search).
 5.  Compare initial and tuned validation performance.
-6.  Select the best tuned model.
-7.  Evaluate the selected model once on the untouched test set.
+6.  Build a simple blend or stack of the top two tuned models and
+    compare it with the best individual model on validation data.
+7.  Select the best tuned model or blend.
+8.  Evaluate the selected model once on the untouched test set.
 
 Not every model requires complex tuning. Linear Regression may have
 little or no useful hyperparameter tuning; do not invent tuning steps
@@ -403,6 +537,105 @@ The output must have a documented shape and ordering, for example:
 Ensure the feature preparation used at inference is identical to
 training. Save the full preprocessing pipeline together with the model
 where possible.
+
+If the selected model is an ensemble, the prediction function must
+encapsulate the full blend and preprocessing pipeline, so callers see a
+single model interface.
+
+### 7.7 Interpretability and key drivers
+
+Explain what the models learn, not only how accurate they are:
+
+-   For Linear Regression, report standardised coefficients and the
+    direction of each effect.
+-   For tree models, report impurity-based and permutation importance;
+    use partial dependence or ICE plots for the most influential
+    features.
+-   Compare feature importance across models and discuss whether the
+    same variables consistently matter.
+-   For RL, analyse action distributions conditioned on state (for
+    example queue imbalance, current phase and time in phase) and use
+    state-feature occlusion or perturbation to show which observations
+    influence decisions.
+-   Use these findings to refine features and state representations
+    (§7.9) and to explain results in the report.
+
+Interpretability is also a model-selection criterion: prefer a model
+with similar accuracy but clearer, more stable explanations when the
+choice is close.
+
+### 7.8 Prediction error analysis
+
+Go beyond aggregate MAE/RMSE:
+
+-   Residuals by direction, demand level, prediction horizon and time
+    period.
+-   Over- and under-prediction bias; worst-case errors and their causes.
+-   Error distributions and whether errors cluster in particular
+    conditions, such as sudden demand changes, empty approaches or
+    heavily saturated approaches.
+-   Comparison of error patterns across candidate models.
+-   Discussion of generalisation, adaptability and potential bias, for
+    example a model that favours the busiest approach or performs poorly
+    on the minor road.
+
+Use the findings to propose concrete improvements to features,
+representations or model structure. Do not report only the mean error.
+
+### 7.9 Feature selection and representation ablation
+
+Run a small, controlled ablation using the same chronological splits,
+model and metrics:
+
+-   F0: current vehicle counts only.
+-   F1: F0 plus lagged counts and rolling means.
+-   F2: F1 plus queue length and mean speed.
+-   F3: F2 plus signal phase and time-in-phase features.
+-   F4: F3 plus derived directional-imbalance features, if justified.
+
+Report the incremental effect on MAE/RMSE/R² and choose the final
+feature set based on validation performance and interpretability. Avoid
+adding features that do not improve held-out performance.
+
+For RL, ablate the state representation:
+
+-   S0: current counts, queues, speeds and signal phase.
+-   S1: S0 plus time elapsed in the current phase.
+-   S2: S1 plus SL predictions (the hybrid state).
+
+Train and evaluate each variant with the same algorithm, scenarios and
+seeds. This separates the effect of the extra state from the effect of
+the RL algorithm and directly supports the hybrid comparison.
+
+### 7.10 Statistical reliability
+
+Do not rely on single point estimates:
+
+-   Report bootstrap 95% confidence intervals for MAE, RMSE and R² on
+    the test set.
+-   When comparing models, use paired comparisons over the same
+    chronological folds or runs where appropriate.
+-   Report the number of runs/seeds and the variability, not only the
+    best result.
+-   For RL, report learning-curve stability, convergence behaviour and
+    variance across seeds (see §10.6).
+
+### 7.11 Cross-distribution robustness
+
+Test whether the SL model generalises beyond the demand profile used for
+training:
+
+-   Train on low/medium demand and test on high, uneven and changing
+    demand; also test the reverse direction where data permits.
+-   Train on a mixture of scenarios and evaluate per scenario.
+-   Fit all preprocessing on the training distribution only and report
+    degradation relative to in-distribution performance.
+
+Discuss which conditions cause the largest errors and link the findings
+to §7.8. For RL, evaluate on held-out scenarios and report recovery time
+after a demand change: the time needed to return to a defined baseline
+queue or waiting level. This addresses adaptability over time, not just
+average performance.
 
 ------------------------------------------------------------------------
 
@@ -436,7 +669,9 @@ observations only. Example state features:
 
 Normalise or scale state features when required by the chosen algorithm.
 Keep the state definition consistent across RL-only training and
-evaluation.
+evaluation. The state representation will be ablated as described in
+§7.9; keep the same feature ordering and definitions across training,
+evaluation and hybrid inference.
 
 ### 8.3 Actions
 
@@ -507,7 +742,10 @@ Train each RL algorithm using current observations only. Record:
 Evaluate trained agents on validation scenarios not used for training.
 RL is stochastic, so use multiple training seeds and multiple evaluation
 runs where feasible. Report mean and standard deviation, not just the
-single best run.
+single best run. Also report learning-curve stability, convergence
+behaviour and variance across seeds (see §10.6). Log diagnostics for RL
+inefficiencies such as unnecessary phase switches, green time with no
+queued vehicles and starvation of minor approaches (see §8.8).
 
 ### 8.7 RL optimisation strategy
 
@@ -538,6 +776,31 @@ Do not select an RL model solely by cumulative reward if reward
 definitions differ. Prioritise traffic outcome metrics such as waiting
 time, queue length, travel time and throughput. Cumulative reward is
 useful within a consistent reward setup.
+
+### 8.8 RL diagnostics, error and inefficiency analysis
+
+Log and analyse:
+
+-   Phase-switch frequency and unnecessary switches (phase chatter).
+-   Green time allocated to approaches with no queued vehicles (wasted
+    green).
+-   Starvation of minor approaches and maximum waiting time per
+    direction.
+-   Action saturation, repeated actions and sensitivity to the reward
+    weights.
+-   Reward-component balance to check that one term does not dominate.
+
+Compare these diagnostics with the fixed-time baseline and use them to
+explain performance differences. Report them alongside the headline
+traffic metrics.
+
+### 8.9 State-representation ablation
+
+Use the S0/S1/S2 variants from §7.9. Train each variant with the same
+algorithm, reward, scenarios and seeds, and evaluate on the same
+validation scenarios. Report whether phase elapsed time and SL
+predictions add value, and whether any gain is consistent across demand
+conditions. This is the controlled evidence for the hybrid design.
 
 ------------------------------------------------------------------------
 
@@ -639,7 +902,10 @@ Use held-out traffic scenarios where possible:
 -   Changing or sudden demand.
 
 The final test scenarios should not be used to tune hyperparameters or
-select models.
+select models. For SL, add a cross-distribution check: train on some
+demand profiles and test on others (see §7.11). For RL, evaluate on
+held-out scenarios and report recovery time after a demand change, not
+only the average over the episode.
 
 ### 10.3 Metrics
 
@@ -665,8 +931,11 @@ select models.
   -----------------------------------------------------------------------
 
 For every controller, use consistent measurement definitions. Report
-means and variability across multiple runs. If practical, include
-confidence intervals or suitable statistical comparisons.
+means, standard deviations and 95% bootstrap confidence intervals across
+multiple runs. Use paired statistical tests for controller comparisons
+where appropriate (see §10.6). Also report recovery time after a demand
+change, defined as the time to return to a stated baseline queue or
+waiting level.
 
 ### 10.4 Fairness and reproducibility
 
@@ -690,11 +959,29 @@ Answer the research question using the results:
 -   Under which demand conditions does prediction help?
 -   Does the hybrid system ever perform worse?
 -   How do SL prediction errors affect signal decisions?
+-   Which features most influence SL predictions and RL actions?
+-   What types of prediction errors dominate, and under which demand
+    conditions?
+-   Does the controller treat minor approaches fairly, or starve them?
+-   How much does SL performance degrade under demand-distribution
+    shift?
 -   What are the limitations of simulation-generated data?
 
 Do not invent results. All tables and plots must be generated from
 actual experiment outputs. Clearly label any illustrative values as
 hypothetical.
+
+### 10.6 Statistical reliability and comparisons
+
+-   Report bootstrap 95% confidence intervals for SL metrics and for
+    controller metrics.
+-   Use paired tests across matched seeds/scenarios (for example,
+    Wilcoxon signed-rank or a paired t-test when assumptions hold) and
+    report effect sizes where useful.
+-   Report the number of runs and the variability; do not claim a
+    difference from a single run.
+-   For RL, show learning curves and convergence/variance across seeds,
+    not only final mean reward.
 
 ------------------------------------------------------------------------
 
@@ -705,31 +992,45 @@ Recommended visualisations:
 ### Data exploration
 
 -   Vehicle count over time by direction.
--   Queue length over time.
+-   Queue length and waiting time over time by direction.
 -   Average speed by direction.
 -   Correlation heatmap.
 -   Traffic demand comparison across scenarios.
+-   Missingness/zero-vehicle heatmap and timestamp-continuity check.
+-   Fixed-time baseline characterisation: queue build-up/recovery and
+    demand calibration.
 
 ### SL
 
 -   Actual vs predicted vehicle counts.
--   Prediction residual plot.
--   MAE/RMSE comparison across models.
+-   Prediction residual plot, plus residuals by direction, demand level
+    and time period.
+-   MAE/RMSE comparison across models, with bootstrap confidence
+    intervals.
 -   Initial vs optimised model comparison.
+-   Feature importance (impurity-based and permutation) and partial
+    dependence/ICE plots.
+-   Feature-set ablation comparison.
+-   Cross-distribution performance matrix (train vs test demand
+    profile).
 
 ### RL
 
--   Episode reward / return curves.
--   Waiting time by episode.
--   Queue length by episode.
+-   Episode reward / return curves with variability across seeds.
+-   Waiting time and queue length by episode.
 -   Initial vs optimised agent comparison.
+-   Action distribution conditioned on queue imbalance/phase.
+-   Phase-switch frequency, wasted green and per-direction waiting
+    times.
+-   Recovery curve after a demand change.
 
 ### Final comparison
 
--   Waiting time by controller and scenario.
+-   Waiting time by controller and scenario, with confidence intervals.
 -   Queue length by controller and scenario.
 -   Travel time by controller and scenario.
 -   Throughput by controller and scenario.
+-   Recovery time after a demand change.
 -   SUMO visual demonstration of the intersection.
 
 Optional: build a Streamlit dashboard showing current counts, SL
@@ -807,12 +1108,16 @@ traffic-signal-hybrid-ml/
 │   ├── evaluation/
 │   │   ├── metrics.py
 │   │   ├── run_comparison.py
-│   │   └── report_results.py
+│   │   ├── report_results.py
+│   │   └── aggregate_results.py
 │   │
 │   └── utils/
 │       ├── paths.py
 │       ├── reproducibility.py
 │       └── logging_utils.py
+│
+├── experiments/
+│   └── run_all.py
 │
 ├── notebooks/
 │   ├── 01_eda.ipynb
@@ -841,6 +1146,25 @@ traffic-signal-hybrid-ml/
 This is a suggested structure, not a requirement to create every file
 immediately. Create modules incrementally as they become necessary.
 
+### 12.1 Experiment automation
+
+Provide one config-driven entry point that can run the pipeline in
+stages:
+
+1.  Generate scenarios and raw observations.
+2.  Build and audit the SL dataset.
+3.  Train, tune and evaluate SL models.
+4.  Train and evaluate RL agents.
+5.  Build and train the hybrid agent.
+6.  Run the final comparison and produce tables/figures.
+
+`experiments/run_all.py` should support stage selection, skip completed
+stages, record the configuration and seed, and fail loudly rather than
+silently continuing. `src/evaluation/aggregate_results.py` should
+collect metrics and regenerate the report tables from saved outputs.
+Also provide a short documented command (or Makefile/PowerShell script)
+for the full pipeline so results are reproducible.
+
 ------------------------------------------------------------------------
 
 ## 13. Recommended Implementation Milestones
@@ -863,6 +1187,10 @@ and vehicles move through the intersection.
 -   [ ] Save CSV files with timestamps, directions and scenario
     identifiers.
 -   [ ] Verify data types, missing values and feature definitions.
+-   [ ] Audit sentinel/undefined values and document the handling policy
+    (§6.5).
+-   [ ] Characterise the fixed-time baseline and calibrate demand
+    (§6.6).
 
 **Acceptance check:** A reproducible script creates a usable dataset
 from SUMO runs.
@@ -876,6 +1204,11 @@ from SUMO runs.
 -   [ ] Evaluate and select top candidates.
 -   [ ] Tune selected candidates.
 -   [ ] Save the best model and preprocessing pipeline.
+-   [ ] Run the feature-set ablation (§7.9).
+-   [ ] Report feature importance and prediction-error analysis
+    (§7.7--§7.8).
+-   [ ] Test cross-distribution robustness (§7.11).
+-   [ ] Report bootstrap confidence intervals (§7.10).
 
 **Acceptance check:** The best model can load and produce predictions
 from a new observation window without data leakage.
@@ -889,6 +1222,9 @@ from a new observation window without data leakage.
 -   [ ] Train and evaluate agents across multiple seeds.
 -   [ ] Tune selected candidates.
 -   [ ] Save the best RL checkpoint.
+-   [ ] Run the state-representation ablation (§8.9).
+-   [ ] Report RL diagnostics/inefficiencies and learning-curve stability
+    (§8.8, §10.6).
 
 **Acceptance check:** An RL agent can interact with SUMO, select valid
 actions and produce logged evaluation metrics.
@@ -900,6 +1236,8 @@ actions and produce logged evaluation metrics.
 -   [ ] Check feature order, units and prediction horizon.
 -   [ ] Train or fine-tune the hybrid RL agent.
 -   [ ] Evaluate the hybrid agent on held-out scenarios.
+-   [ ] Compare S1 and S2 state variants and report recovery time
+    (§8.9, §10.2).
 
 **Acceptance check:** The hybrid controller uses model-generated
 predictions (not future ground truth) and controls the simulation
@@ -910,6 +1248,10 @@ safely.
 -   [ ] Run fixed-time, RL-only and hybrid comparisons.
 -   [ ] Use matched scenarios and multiple seeds.
 -   [ ] Calculate aggregate metrics and variability.
+-   [ ] Run paired statistical tests and report confidence intervals
+    (§10.6).
+-   [ ] Regenerate all tables and figures with the one-command pipeline
+    (§12.1).
 -   [ ] Generate tables and plots from actual logs.
 -   [ ] Discuss results, limitations and future work.
 
@@ -941,6 +1283,10 @@ configurations, checkpoints and scripts.
 
 Only tune the selected top candidates. For models not tuned, mark the
 tuned columns as N/A rather than implying they were optimised.
+
+If the model-combination experiment is run (§7.2, §7.5), add an
+`Ensemble / blend` row to the table. Evaluate it under the same
+validation and untouched-test protocol as the individual models.
 
 ### RL results
 
@@ -1031,6 +1377,9 @@ this `PLAN.md` as the project specification and source of truth.
 15. **Do not silently change scope.** Ask before introducing multiple
     intersections, a new prediction target, a substantially different
     reward design or additional complex algorithms.
+16. **Automate the pipeline.** Maintain a single config-driven entry
+    point that can regenerate data, train/evaluate models and produce
+    tables/figures from saved outputs (§12.1).
 
 ### Interaction and implementation sequence
 
@@ -1117,6 +1466,24 @@ making a major architectural assumption.
                                       and run logs
   -----------------------------------------------------------------------
 
+Additional risks introduced by the expanded experiment plan:
+
+-   **Undefined or sentinel feature values corrupt the dataset.** Audit
+    these values, convert only true sentinels to missing values, add
+    explicit availability flags and document the policy (§6.5).
+-   **A blend overfits the validation set.** Keep the blend simple,
+    define it before final testing and evaluate it once on the untouched
+    test set (§7.5).
+-   **Statistical claims are overstated.** Report bootstrap confidence
+    intervals, paired tests and effect sizes, and distinguish practical
+    from statistical significance (§10.6).
+-   **Demand shifts degrade SL predictions.** Report cross-distribution
+    results and avoid presenting in-distribution accuracy as evidence of
+    general robustness (§7.11).
+-   **The pipeline drifts from the reported results.** Regenerate all
+    tables and figures from saved outputs through one config-driven
+    entry point (§12.1).
+
 ------------------------------------------------------------------------
 
 ## 17. Expected Final Deliverables
@@ -1137,6 +1504,60 @@ making a major architectural assumption.
 12. README with setup and execution instructions.
 13. Assignment report covering methodology, experiments, results,
     discussion and conclusion.
+
+### 17.1 Report outline and submission checklist
+
+Use the following structure for the final report. Adapt the depth of each
+section to the final results, but keep the methodology and evidence
+traceable to the code and saved outputs.
+
+1.  **Title and overview.** Project title, team members, one-paragraph
+    summary of the solution and headline findings.
+2.  **Problem definition and research question.** The traffic-signal
+    problem, why fixed-time control is limited and the precise hybrid
+    SL + RL research question.
+3.  **Critical evaluation of current technologies and related work.**
+    Fixed-time, actuated and RL-based control; forecasting approaches;
+    the rationale for the selected tools and algorithms (§4.1).
+4.  **Proposed solution and system architecture.** SL, RL and hybrid
+    components; how observations, predictions, actions and rewards flow
+    through the system.
+5.  **Simulation, scenarios and data generation.** Network, demand
+    scenarios, observation collection, dataset construction, data-quality
+    audit and missing-data handling (§6, especially §6.5--§6.6).
+6.  **Supervised learning.** Features and target, leakage prevention,
+    candidate models, validation and tuning, feature-set ablation,
+    interpretability, prediction-error analysis and cross-distribution
+    robustness (§7).
+7.  **Reinforcement learning.** Environment, state, actions, reward,
+    algorithms, training protocol, learning-curve stability, diagnostics
+    and state-representation ablation (§8).
+8.  **Hybrid integration.** Expanded state, training or fine-tuning,
+    leakage prevention and a controlled comparison of the hybrid state
+    variants (§9).
+9.  **Evaluation design.** Controllers, test scenarios, metrics,
+    statistical reliability, fairness and reproducibility (§10).
+10. **Results.** SL, RL and hybrid results and the final controller
+    comparison, generated from saved outputs rather than retyped values.
+11. **Discussion.** Answer the research questions; examine errors,
+    limitations, generalisation, adaptability, fairness and bias; discuss
+    threats to validity.
+12. **Conclusion and future work.**
+13. **References.**
+14. **Appendices.** Configurations, additional plots, implementation
+    notes and reproducibility instructions.
+
+**Submission checklist:**
+
+-   [ ] Team has 3--4 members and a unique project title/solution.
+-   [ ] Report includes a task-allocation and individual-contribution
+    section. Add this only after the team agrees the final split; do not
+    invent contributions.
+-   [ ] Report is written in clear English and compiled as one group
+    submission.
+-   [ ] One copy of the assessment rubric is submitted separately.
+-   [ ] The completed system is ready for the presentation/demo and Q&A
+    session.
 
 ------------------------------------------------------------------------
 

@@ -103,6 +103,7 @@ Candidate regression models:
 2. Decision Tree Regressor
 3. Random Forest Regressor
 4. XGBoost Regressor (optional, depending on time and resources)
+5. Ensemble/blend of the top two tuned models (for example, averaging or stacking)
 
 Models will be evaluated using:
 
@@ -111,6 +112,10 @@ Models will be evaluated using:
 - R-squared (R²)
 
 The strongest candidates will be tuned, and the best optimised SL model will be selected for hybrid integration.
+
+The ensemble/blend is a deliberate model-combination experiment: it combines the top two tuned models rather than adding another unrelated algorithm. It must be built without using final test data and evaluated on the same validation and untouched-test protocol as the individual models, so the report can show whether combination improves accuracy or reliability.
+
+Beyond accuracy, the SL analysis reports feature importance and key drivers, prediction-error patterns, a feature-set ablation and cross-distribution robustness. The data-quality, sentinel-value and missing-data policy is specified in `PLAN.md` §6.5.
 
 ### 4.3 Reinforcement Learning (RL)
 
@@ -139,6 +144,8 @@ Candidate RL algorithms:
 3. Proximal Policy Optimisation (PPO) (optional)
 
 RL-only models will first be trained and evaluated **without SL predictions**. This provides a fair standalone RL approach for comparison.
+
+RL evaluation also includes learning-curve stability and variance across seeds, a state-representation ablation (base state versus phase-elapsed state versus SL-prediction state) and diagnostics such as phase-switch chatter, wasted green time and starvation of the minor approaches. See `PLAN.md` §8.8--§8.9 and §10.6.
 
 ### 4.4 Hybrid Supervised Learning + Reinforcement Learning
 
@@ -231,6 +238,8 @@ The final comparison will include:
 
 For a fair comparison, the controllers should be tested using the same simulation network, traffic demand scenarios, simulation durations and test seeds wherever possible. Use multiple runs and report averages and variability.
 
+Report means, standard deviations and 95% bootstrap confidence intervals, and use paired statistical tests across matched seeds or scenarios where appropriate. Also report recovery time after a demand change to a stated baseline queue/waiting level, and evaluate the SL model on demand distributions that differ from its training distribution. See `PLAN.md` §7.11 and §10.6.
+
 Keep final test scenarios separate from data and experiments used for model selection and tuning.
 
 ## 8. Technologies and Tools
@@ -246,6 +255,8 @@ Keep final test scenarios separate from data and experiments used for model sele
 | PyTorch | Neural-network-based RL implementations such as DQN or PPO, if selected. |
 | Matplotlib | Charts and result visualisation. |
 | Git and GitHub | Version control and team collaboration. |
+
+A critical comparison of fixed-time, actuated and RL-based control, together with the rationale for choosing SUMO, TraCI, scikit-learn and PyTorch, is given in `PLAN.md` §4.1. Summarise the key points in the report's related-work section rather than treating the technology table as the evaluation.
 
 Some tools are optional and should only be added if required by the chosen implementation.
 
@@ -283,6 +294,9 @@ traffic-signal-hybrid-ml/
 │   ├── hybrid/
 │   ├── evaluation/
 │   └── utils/
+│
+├── experiments/
+│   └── run_all.py
 │
 ├── notebooks/
 ├── models/
@@ -392,6 +406,11 @@ For the detailed methodology, experiment plan, implementation guidance and miles
 - Use the same test scenarios and comparable simulation settings for final controller comparisons.
 - Record experiment configurations and random seeds.
 - Report measured results honestly. Do not present hypothetical or illustrative results as actual findings.
+- Audit sentinel/undefined values and apply the missing-data policy in `PLAN.md` §6.5.
+- Report bootstrap confidence intervals and paired statistical tests, not only point estimates (`PLAN.md` §10.6).
+- Run the SL feature-set ablation and the RL state-representation ablation (`PLAN.md` §7.9 and §8.9).
+- Test demand-distribution shift, adaptation and recovery time (`PLAN.md` §7.11).
+- Regenerate final tables and figures through the one-command pipeline (`PLAN.md` §12.1).
 
 ## 14. Useful Resources
 
@@ -400,6 +419,30 @@ For the detailed methodology, experiment plan, implementation guidance and miles
 - [SUMO Traffic Light Tutorial](https://eclipse.dev/sumo/docs/Tutorials/TraCI4Traffic_Lights.html)
 - [Scikit-learn Documentation](https://scikit-learn.org/)
 - [PyTorch Documentation](https://pytorch.org/)
+
+## 15. Report Outline and Submission Checklist
+
+The detailed report outline is in `PLAN.md` §17.1. The report should cover:
+
+1. Title, team members and a brief overview.
+2. Problem definition and research question.
+3. Critical evaluation of current technologies and related work.
+4. Proposed solution, architecture and how it works.
+5. Simulation, traffic scenarios, data generation and data quality.
+6. SL methodology, results, interpretability and error analysis.
+7. RL methodology, results, training stability and diagnostics.
+8. Hybrid integration, training and results.
+9. Evaluation design, statistical comparisons and final results.
+10. Discussion, limitations, fairness/bias and future work.
+11. References and appendices.
+
+**Submission checklist:**
+
+- [ ] Team has 3–4 members and a unique title/solution with no duplication.
+- [ ] Report includes task allocations and each member's individual contribution. Add this after the team agrees the final split; do not invent contributions.
+- [ ] Report is written in clear English and compiled as one group submission.
+- [ ] One copy of the assessment rubric is submitted separately from the report.
+- [ ] The completed project is ready for the presentation/demo and Q&A in the practical class from week 7.
 
 ---
 
