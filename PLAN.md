@@ -2,11 +2,32 @@
 
 > **Project title:** An Intelligent Hybrid Supervised and Reinforcement
 > Learning-Based Adaptive Traffic Signal Optimisation System\
-> **Status:** Project plan / implementation specification\
+> **Status:** Implementation in progress --- M1 and M2 complete; M3 next\
+> **Last updated:** 2026-11-14\
 > **Primary language:** Python\
 > **Simulation environment:** Eclipse SUMO\
 > **Integration interface:** TraCI\
 > **Initial scope:** One four-way intersection
+
+## Implementation Status (14 November 2026)
+
+| Milestone | Status | Evidence |
+|---|---|---|
+| M1 --- Environment works | ✅ Complete | Four-way SUMO network, fixed-time 90 s TLS, TraCI smoke test |
+| M2 --- Data collection works | ✅ Complete | 5 scenarios × 4 seeds = 20 runs, 57,600 rows, fixed-time baseline report |
+| M3 --- SL pipeline | 📋 Next | Dataset, target, splits and baseline models not started |
+| M4 --- RL-only pipeline | 📋 Planned | Depends on M3 |
+| M5 --- Hybrid SL + RL | 📋 Planned | Depends on M4 |
+| M6 --- Final experiments | 📋 Planned | Depends on M5 |
+
+Key references:
+
+- [`FILES.md`](FILES.md) --- authoritative file/folder map by milestone.
+- [`RUNBOOK.md`](RUNBOOK.md) --- setup, commands and expected outputs.
+- [`docs/fixed_time_baseline.md`](docs/fixed_time_baseline.md) --- M2
+  fixed-time baseline report.
+- `data/raw/` --- 20 observation CSVs and `run_manifest.csv` (Gitignored;
+  regenerate with `RUNBOOK.md`).
 
 ------------------------------------------------------------------------
 
@@ -179,7 +200,7 @@ Use references and report this comparison in the related-work section.
 
 ## 5. Overall System Workflow
 
-### Phase A --- Data and simulation setup
+### Phase A --- Data and simulation setup ✅
 
 1.  Create a four-way SUMO network.
 2.  Define valid traffic-light phases and transitions.
@@ -188,7 +209,7 @@ Use references and report this comparison in the related-work section.
 5.  Extract traffic observations at a consistent sampling interval.
 6.  Save reproducible datasets and scenario configurations.
 
-### Phase B --- Supervised Learning
+### Phase B --- Supervised Learning 📋 Next
 
 1.  Define the prediction target.
 2.  Explore and preprocess the data.
@@ -200,7 +221,7 @@ Use references and report this comparison in the related-work section.
 7.  Re-evaluate them on the same untouched test set.
 8.  Select the best optimised SL model for hybrid integration.
 
-### Phase C --- Reinforcement Learning
+### Phase C --- Reinforcement Learning 📋 Planned
 
 1.  Define the RL environment, observations, actions and reward.
 2.  Implement a fixed-time controller as a baseline.
@@ -212,7 +233,7 @@ Use references and report this comparison in the related-work section.
 7.  Re-evaluate them using consistent test scenarios and multiple seeds.
 8.  Select the best optimised RL approach for hybrid integration.
 
-### Phase D --- Hybrid integration
+### Phase D --- Hybrid integration 📋 Planned
 
 1.  Load the selected optimised SL model.
 2.  At each RL decision step, collect current traffic observations.
@@ -222,7 +243,7 @@ Use references and report this comparison in the related-work section.
     state.
 6.  Evaluate the hybrid controller.
 
-### Phase E --- Final comparative testing
+### Phase E --- Final comparative testing 📋 Planned
 
 Compare:
 
@@ -423,6 +444,14 @@ controller:
     action space, and to sanity-check RL behaviour.
 
 This is exploratory analysis, not the final controller comparison.
+
+**Status (14 November 2026): complete.** The fixed-time baseline was run
+for all five scenarios with seeds 42--45. Results, plots and the data-quality
+audit are in [`docs/fixed_time_baseline.md`](docs/fixed_time_baseline.md)
+and `results/fixed_time_baseline/`. Low, medium and high (700
+veh/h/approach) are stable; uneven north is the only saturated approach;
+changing builds up and recovers. High was reduced from 800 to 700
+veh/h/approach to avoid permanent gridlock.
 
 ------------------------------------------------------------------------
 
@@ -1042,6 +1071,12 @@ models and evaluation work correctly.
 
 ## 12. Suggested Repository Structure
 
+**Actual state (14 November 2026):** M1 and M2 are implemented under
+`sumo/network/`, `sumo/routes/`, `configs/`, `src/simulation/`,
+`src/analysis/`, `tests/` and `docs/`. See [`FILES.md`](FILES.md) for the
+authoritative file/folder map. The tree below is the target layout for
+M3--M6, not a claim that every listed file already exists.
+
 Adapt this structure to the actual project, but keep code modular and
 avoid placing everything in one notebook.
 
@@ -1169,33 +1204,46 @@ for the full pipeline so results are reproducible.
 
 ## 13. Recommended Implementation Milestones
 
-### Milestone 1 --- Environment works
+### Milestone 1 --- Environment works ✅
 
--   [ ] Confirm Python environment and dependencies.
--   [ ] Confirm SUMO and TraCI work from Python.
--   [ ] Build and open a simple four-way intersection.
--   [ ] Verify valid signal phases and safe transitions.
--   [ ] Run a small traffic simulation.
+-   [x] Confirm Python environment and dependencies.
+-   [x] Confirm SUMO and TraCI work from Python.
+-   [x] Build and open a simple four-way intersection.
+-   [x] Verify valid signal phases and safe transitions.
+-   [x] Run a small traffic simulation.
+
+**Completed 13 November 2026.** The network sources, build script,
+generated network, fixed-time TLS program and TraCI smoke test are in
+`sumo/network/` and `src/simulation/check_connection.py`. Exact commands
+and expected output are in [`RUNBOOK.md`](RUNBOOK.md) §M1.
 
 **Acceptance check:** A reproducible SUMO simulation runs successfully
-and vehicles move through the intersection.
+and vehicles move through the intersection. ✅
 
-### Milestone 2 --- Data collection works
+### Milestone 2 --- Data collection works ✅
 
--   [ ] Generate several traffic scenarios.
--   [ ] Extract counts, speed, queue and waiting-time observations.
--   [ ] Save CSV files with timestamps, directions and scenario
+-   [x] Generate several traffic scenarios.
+-   [x] Extract counts, speed, queue and waiting-time observations.
+-   [x] Save CSV files with timestamps, directions and scenario
     identifiers.
--   [ ] Verify data types, missing values and feature definitions.
--   [ ] Audit sentinel/undefined values and document the handling policy
+-   [x] Verify data types, missing values and feature definitions.
+-   [x] Audit sentinel/undefined values and document the handling policy
     (§6.5).
--   [ ] Characterise the fixed-time baseline and calibrate demand
+-   [x] Characterise the fixed-time baseline and calibrate demand
     (§6.6).
 
-**Acceptance check:** A reproducible script creates a usable dataset
-from SUMO runs.
+**Completed 13 November 2026.** Five scenarios × four seeds produced
+20 runs and 57,600 observation rows with a 17-column schema. The run
+manifest records config, route and canonical network hashes, throughput
+totals and status. The fixed-time baseline is documented in
+[`docs/fixed_time_baseline.md`](docs/fixed_time_baseline.md), with
+tables and plots in `results/fixed_time_baseline/`. See
+[`RUNBOOK.md`](RUNBOOK.md) §M2.
 
-### Milestone 3 --- SL pipeline works
+**Acceptance check:** A reproducible script creates a usable dataset
+from SUMO runs. ✅
+
+### Milestone 3 --- SL pipeline works 📋 Next
 
 -   [ ] Define the five-minute prediction target.
 -   [ ] Create chronological train/validation/test splits.
@@ -1488,6 +1536,11 @@ Additional risks introduced by the expanded experiment plan:
 
 ## 17. Expected Final Deliverables
 
+**Status (14 November 2026):** deliverables 1--3, 7 and 12 are available
+(M1/M2 network, scripts, raw data or regeneration instructions, fixed-time
+controller, README). Deliverable 4 is partially covered by the fixed-time
+baseline plots. Deliverables 5--6 and 8--11, 13 remain for M3--M6.
+
 1.  SUMO four-way intersection network and configuration.
 2.  Reproducible traffic scenario generation and data collection
     scripts.
@@ -1576,18 +1629,17 @@ traceable to the code and saved outputs.
 
 ## 19. Immediate Next Task
 
-**Do not start by implementing all ML algorithms.**
+M1 and M2 are complete. Start Milestone 3:
 
-First inspect the development environment and complete Milestone 1:
+1.  Load the 20 observation CSVs from `data/raw/` and validate that every
+    manifest row has `status == "ok"`.
+2.  Build the prediction target as `vehicle_count` 300 s ahead using
+    `groupby(["run_id", "direction"])["vehicle_count"].shift(-60)`.
+3.  Drop the last 60 samples of each run, where the target is undefined.
+4.  Create chronological train/validation/test splits; never shuffle
+    time-ordered observations.
+5.  Run EDA and train baseline models (Linear Regression, Decision Tree,
+    Random Forest), reporting MAE, RMSE and R².
+6.  Tune the best two candidates and freeze the best SL model for M5.
 
-1.  Verify Python.
-2.  Verify SUMO installation and executable access.
-3.  Verify TraCI can be imported and communicate with SUMO.
-4.  Build or run a minimal four-way intersection.
-5.  Confirm that vehicles move and traffic lights switch through safe
-    phases.
-6.  Document the exact commands needed to reproduce the run.
-
-Once this works, proceed to data collection. The project should advance
-through the milestones in order, with a working and tested result at
-each stage.
+Do not start RL or hybrid training until the SL pipeline works end-to-end.
