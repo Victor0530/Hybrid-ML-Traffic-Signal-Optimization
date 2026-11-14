@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Right-hand traffic. Lane 0 handles straight and right turns; lane 1 is the
+    dedicated left-turn lane. Left turns join the inner (lane 1) outgoing lane.
+-->
+<connections>
+    <!-- From the north, heading south -->
+    <connection from="north_in" to="south_out" fromLane="0" toLane="0"/>
+    <connection from="north_in" to="west_out"  fromLane="0" toLane="0"/>
+    <connection from="north_in" to="east_out"  fromLane="1" toLane="1"/>
+
+    <!-- From the south, heading north -->
+    <connection from="south_in" to="north_out" fromLane="0" toLane="0"/>
+    <connection from="south_in" to="east_out"  fromLane="0" toLane="0"/>
+    <connection from="south_in" to="west_out"  fromLane="1" toLane="1"/>
+
+    <!-- From the east, heading west -->
+    <connection from="east_in" to="west_out"  fromLane="0" toLane="0"/>
+    <connection from="east_in" to="north_out" fromLane="0" toLane="0"/>
+    <connection from="east_in" to="south_out" fromLane="1" toLane="1"/>
+
+    <!-- From the west, heading east -->
+    <connection from="west_in" to="east_out"  fromLane="0" toLane="0"/>
+    <connection from="west_in" to="south_out" fromLane="0" toLane="0"/>
+    <connection from="west_in" to="north_out" fromLane="1" toLane="1"/>
+</connections>

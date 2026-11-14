@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Two incoming lanes per approach (lane 0 = straight/right, lane 1 = left)
+    and two outgoing lanes. 50 km/h speed limit, 500 m arms.
+-->
+<edges>
+    <edge id="north_in" from="N" to="C" priority="1" numLanes="2" speed="13.89"/>
+    <edge id="north_out" from="C" to="N" priority="1" numLanes="2" speed="13.89"/>
+
+    <edge id="south_in" from="S" to="C" priority="1" numLanes="2" speed="13.89"/>
+    <edge id="south_out" from="C" to="S" priority="1" numLanes="2" speed="13.89"/>
+
+    <edge id="east_in" from="E" to="C" priority="1" numLanes="2" speed="13.89"/>
+    <edge id="east_out" from="C" to="E" priority="1" numLanes="2" speed="13.89"/>
+
+    <edge id="west_in" from="W" to="C" priority="1" numLanes="2" speed="13.89"/>
+    <edge id="west_out" from="C" to="W" priority="1" numLanes="2" speed="13.89"/>
+</edges>

@@ -1,0 +1,45 @@
+# Core dependencies for the traffic signal optimisation project.
+# Python 3.11 is recommended.
+#
+# Eclipse SUMO itself must be installed separately and SUMO_HOME must be set.
+# These PyPI packages are the official SUMO Python client. The version must
+# match the installed SUMO release (1.28.0). When SUMO's tools folder is on
+# PYTHONPATH, Python may load the bundled copy instead; both are equivalent.
+traci==1.28.0
+sumolib==1.28.0
+
+# Data handling
+numpy==2.4.6
+pandas==3.0.5
+
+# Supervised learning
+scikit-learn==1.9.0
+
+# Visualisation
+matplotlib==3.11.1
+seaborn==0.13.2
+
+# Configuration files
+PyYAML==6.0.3
+
+# Testing
+pytest==9.1.1
+
+# ---------------------------------------------------------------------------
+# Optional extras - install only when the related milestone is reached.
+# Uncomment or install directly with: pip install <package>
+# ---------------------------------------------------------------------------
+# SL candidate model (PLAN.md section 7.2)
+# xgboost
+#
+# Deep RL agents: DQN / PPO (PLAN.md section 8.5)
+# torch
+#
+# Gymnasium environment wrapper (PLAN.md section 8.1)
+# gymnasium
+#
+# Streamlit demo dashboard (PLAN.md section 11)
+# streamlit
+#
+# EDA and experiment notebooks (PLAN.md section 12)
+# jupyterlab

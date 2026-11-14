@@ -1,0 +1,56 @@
+# Traffic demand scenarios for the single four-way intersection.
+# Demand values are vehicles per hour PER APPROACH (not per lane).
+simulation:
+  duration: 3600          # simulated seconds per run
+  sampling_interval: 5    # seconds between observation rows
+  prediction_horizon: 300 # SL target: vehicle count 5 minutes ahead
+  turning_split:
+    straight: 0.70
+    left: 0.15
+    right: 0.15
+
+scenarios:
+  low:
+    description: "Low uniform demand"
+    demand:
+      north: 300
+      south: 300
+      east: 300
+      west: 300
+
+  medium:
+    description: "Medium uniform demand"
+    demand:
+      north: 600
+      south: 600
+      east: 600
+      west: 600
+
+  high:
+    description: "High uniform demand near capacity, without permanent gridlock"
+    demand:
+      north: 700
+      south: 700
+      east: 700
+      west: 700
+
+  uneven:
+    description: "North and west are much busier than south and east"
+    demand:
+      north: 800
+      south: 250
+      east: 250
+      west: 600
+
+  changing:
+    description: "Demand steps from medium to high at t=1800, then recovers at t=2700"
+    phases:
+      - begin: 0
+        end: 1800
+        demand: {north: 400, south: 400, east: 400, west: 400}
+      - begin: 1800
+        end: 2700
+        demand: {north: 800, south: 800, east: 800, west: 800}
+      - begin: 2700
+        end: 3600
+        demand: {north: 400, south: 400, east: 400, west: 400}

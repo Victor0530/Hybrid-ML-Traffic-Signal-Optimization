@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Medium-demand scenario: 600 vehicles/hour per approach.
+    Turning split per approach: 70% straight, 15% left, 15% right.
+    Total demand = 2400 vehicles/hour.
+-->
+<routes>
+    <vType id="car" vClass="passenger" accel="2.6" decel="4.5" sigma="0.5"
+           length="5.0" minGap="2.5" maxSpeed="13.89"/>
+
+    <!-- Routes: one per origin/destination pair -->
+    <route id="n_s" edges="north_in south_out"/>
+    <route id="n_e" edges="north_in east_out"/>
+    <route id="n_w" edges="north_in west_out"/>
+
+    <route id="s_n" edges="south_in north_out"/>
+    <route id="s_w" edges="south_in west_out"/>
+    <route id="s_e" edges="south_in east_out"/>
+
+    <route id="e_w" edges="east_in west_out"/>
+    <route id="e_s" edges="east_in south_out"/>
+    <route id="e_n" edges="east_in north_out"/>
+
+    <route id="w_e" edges="west_in east_out"/>
+    <route id="w_n" edges="west_in north_out"/>
+    <route id="w_s" edges="west_in south_out"/>
+
+    <!-- North approach -->
+    <flow id="n_s_flow" route="n_s" begin="0" end="3600" vehsPerHour="420"
+          departLane="best" departSpeed="max"/>
+    <flow id="n_e_flow" route="n_e" begin="0" end="3600" vehsPerHour="90"
+          departLane="best" departSpeed="max"/>
+    <flow id="n_w_flow" route="n_w" begin="0" end="3600" vehsPerHour="90"
+          departLane="best" departSpeed="max"/>
+
+    <!-- South approach -->
+    <flow id="s_n_flow" route="s_n" begin="0" end="3600" vehsPerHour="420"
+          departLane="best" departSpeed="max"/>
+    <flow id="s_w_flow" route="s_w" begin="0" end="3600" vehsPerHour="90"
+          departLane="best" departSpeed="max"/>
+    <flow id="s_e_flow" route="s_e" begin="0" end="3600" vehsPerHour="90"
+          departLane="best" departSpeed="max"/>
+
+    <!-- East approach -->
+    <flow id="e_w_flow" route="e_w" begin="0" end="3600" vehsPerHour="420"
+          departLane="best" departSpeed="max"/>
+    <flow id="e_s_flow" route="e_s" begin="0" end="3600" vehsPerHour="90"
+          departLane="best" departSpeed="max"/>
+    <flow id="e_n_flow" route="e_n" begin="0" end="3600" vehsPerHour="90"
+          departLane="best" departSpeed="max"/>
+
+    <!-- West approach -->
+    <flow id="w_e_flow" route="w_e" begin="0" end="3600" vehsPerHour="420"
+          departLane="best" departSpeed="max"/>
+    <flow id="w_n_flow" route="w_n" begin="0" end="3600" vehsPerHour="90"
+          departLane="best" departSpeed="max"/>
+    <flow id="w_s_flow" route="w_s" begin="0" end="3600" vehsPerHour="90"
+          departLane="best" departSpeed="max"/>
+</routes>
