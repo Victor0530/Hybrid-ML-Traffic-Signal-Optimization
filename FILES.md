@@ -14,7 +14,7 @@ runbook explains **how to run and reproduce it**.
 | 🚧 | Currently being built |
 | 📋 | Planned — not in the repository yet |
 
-**Last updated:** 2026-11-13, after completing the Milestone 2 baseline characterisation.
+**Last updated:** 2026-11-14, after completing the Milestone 2 baseline characterisation and verification suite.
 
 ---
 
@@ -244,7 +244,7 @@ These paths are reserved for the next phase and do not exist yet.
 | `models/sl/` | 📋 | Trained model artifacts and any fitted preprocessors. | `.joblib`/model files (gitignored). |
 | `results/sl/` | 📋 | MAE/RMSE/R² tables, residual plots, forecast plots, and ablation results. | Figures and CSV/JSON metrics (gitignored). |
 | `notebooks/` | 📋 | Exploratory data analysis and result interpretation. | Notebooks, optional. |
-| `tests/` | ✅/📋 | M2 tests cover deterministic route generation, collector CSV validation, config hashing, and SUMO binary resolution. Feature-construction, leakage, and metric tests are added in M3. | `pytest` results. |
+| `tests/` | ✅/📋 | M2 tests cover deterministic route generation, collector CSV validation, config hashing, stable network hashing, and SUMO binary resolution. Feature-construction, leakage, and metric tests are added in M3. | `pytest` results. |
 
 ### M3 design rules to preserve
 
@@ -342,7 +342,7 @@ spread, not just a single run.
 | `RUNBOOK.md` | ✅ | Command-by-command run and reproduction guide. |
 | `docs/fixed_time_baseline.md` | ✅ | Fixed-time M2 baseline report: TLS phases, data quality, scenario results, saturation/recovery, and RL implications. Tracked by Git. |
 | `src/analysis/` | ✅ | M2 analysis code. `characterise_baseline.py` reads the raw dataset and writes `results/fixed_time_baseline/` plus the report evidence. |
-| `tests/` | ✅/📋 | M2 automated tests for route generation, dataset schema validation, config hashing, and binary resolution; M3–M6 tests are added with their phases. |
+| `tests/` | ✅/📋 | M2 automated tests for route generation, dataset schema validation, config hashing, stable network hashing, and binary resolution; M3–M6 tests are added with their phases. |
 | `src/utils/` | 📋 | Shared helpers such as seeding, logging, and config loading. |
 
 ---

@@ -388,15 +388,15 @@ Not every member must generate the dataset personally. A designated member can g
 
 ## 12. Development Roadmap
 
-The project will be developed in the following stages:
+The project is being developed in the following stages:
 
-1. **Environment setup:** Install and verify Python, SUMO and TraCI; create the four-way intersection.
-2. **Traffic data generation:** Configure traffic scenarios, collect observations and prepare the dataset.
-3. **SL development:** Train, evaluate and optimise traffic-volume prediction models.
-4. **RL development:** Implement, train, evaluate and optimise RL controllers without SL predictions.
-5. **Hybrid integration:** Add predictions from the selected SL model to the RL state, then train or fine-tune the hybrid agent.
-6. **Final evaluation:** Compare fixed-time, RL-only and hybrid controllers under matched traffic scenarios.
-7. **Reporting:** Analyse results, discuss limitations and prepare the final report.
+1. ✅ **Environment setup (complete):** Install and verify Python, SUMO and TraCI; create the four-way intersection.
+2. ✅ **Traffic data generation (complete):** Configure traffic scenarios, collect observations and prepare the dataset.
+3. 📋 **SL development (next):** Train, evaluate and optimise traffic-volume prediction models.
+4. 📋 **RL development (planned):** Implement, train, evaluate and optimise RL controllers without SL predictions.
+5. 📋 **Hybrid integration (planned):** Add predictions from the selected SL model to the RL state, then train or fine-tune the hybrid agent.
+6. 📋 **Final evaluation (planned):** Compare fixed-time, RL-only and hybrid controllers under matched traffic scenarios.
+7. 📋 **Reporting (planned):** Analyse results, discuss limitations and prepare the final report.
 
 For the detailed methodology, experiment plan, implementation guidance and milestones, refer to **[PLAN.md](PLAN.md)**.
 
