@@ -2,7 +2,7 @@
 
 A simulation-based machine learning project that investigates whether combining **Supervised Learning (SL)** and **Reinforcement Learning (RL)** can improve traffic signal control at a four-way intersection.
 
-> **Project status:** Planning and development  
+> **Project status:** In development
 > **Primary environment:** Eclipse SUMO  
 > **Main implementation language:** Python
 
@@ -317,6 +317,11 @@ traffic-signal-hybrid-ml/
 The structure is a suggested starting point. It can be adjusted as the implementation becomes clearer.
 
 ## 10. Getting Started
+
+> For the exact Windows setup, commands, expected outputs and troubleshooting, see
+> [RUNBOOK.md](RUNBOOK.md). For a milestone-ordered map of every file and folder,
+> see [FILES.md](FILES.md). For the completed M2 fixed-time baseline analysis, see
+> [docs/fixed_time_baseline.md](docs/fixed_time_baseline.md).
 
 ### Prerequisites
 

@@ -1,4 +1,20 @@
+.venv
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Generated artifacts (recreate with the scripts in src/ and sumo/)
+data/raw/
+data/processed/
+models/
+results/
+sumo/routes/generated/
+
 *.md
 
 !PLAN.md
 !README.md
+!FILES.md
+!RUNBOOK.md
+!docs/
+!docs/*.md
