@@ -21,12 +21,20 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from src.simulation.data_collector import (
+    hash_config,
+    sha256_file,
+    stable_network_hash,
+)
 from src.simulation.scenario_generator import DIRECTIONS, load_config
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "results" / "fixed_time_baseline"
 DEFAULT_CONFIG = PROJECT_ROOT / "configs" / "traffic_scenarios.yaml"
+NETWORK_PATH = PROJECT_ROOT / "sumo" / "network" / "intersection.net.xml"
+ROUTE_DIR = PROJECT_ROOT / "sumo" / "routes" / "generated"
+EXPECTED_SEEDS = (42, 43, 44, 45)
 BIN_SECONDS = 300
 
 COLORS = {
@@ -48,7 +56,18 @@ def load_observations(data_dir: Path, config: dict) -> tuple[pd.DataFrame, pd.Da
         raise FileNotFoundError(f"Missing manifest: {manifest_path}")
 
     manifest = pd.read_csv(manifest_path)
-    required_manifest = {"run_id", "status", "duration", "sampling_interval"}
+    required_manifest = {
+        "run_id",
+        "scenario",
+        "seed",
+        "status",
+        "duration",
+        "sampling_interval",
+        "simulation_end",
+        "config_hash",
+        "route_hash",
+        "network_hash",
+    }
     missing = required_manifest - set(manifest.columns)
     if missing:
         raise ValueError(f"Manifest missing columns: {sorted(missing)}")
@@ -61,6 +80,58 @@ def load_observations(data_dir: Path, config: dict) -> tuple[pd.DataFrame, pd.Da
     if runs.empty:
         raise ValueError(
             "No successful runs match the configured duration and sampling interval."
+        )
+
+    current_config_hash = hash_config(config)
+    current_network_hash = stable_network_hash(NETWORK_PATH)
+    current_route_hashes = {
+        scenario: sha256_file(ROUTE_DIR / f"{scenario}.rou.xml")
+        for scenario in config["scenarios"]
+    }
+
+    for row in runs.itertuples(index=False):
+        if row.config_hash != current_config_hash:
+            raise ValueError(
+                f"Run {row.run_id} was collected with a different configuration "
+                f"(config hash {row.config_hash!r} != {current_config_hash!r}). "
+                "Rerun the collector with --overwrite."
+            )
+        expected_route_hash = current_route_hashes.get(row.scenario)
+        if expected_route_hash is None:
+            raise ValueError(
+                f"Run {row.run_id} uses unknown scenario {row.scenario!r}."
+            )
+        if row.route_hash != expected_route_hash:
+            raise ValueError(
+                f"Run {row.run_id} was collected with a different route file "
+                f"for {row.scenario!r} (route hash {row.route_hash!r} != "
+                f"{expected_route_hash!r}). Rerun the collector with --overwrite."
+            )
+        if row.network_hash != current_network_hash:
+            raise ValueError(
+                f"Run {row.run_id} was collected with a different network "
+                f"(network hash {row.network_hash!r} != "
+                f"{current_network_hash!r}). Rerun the collector with --overwrite."
+            )
+        if int(row.simulation_end) != duration:
+            raise ValueError(
+                f"Run {row.run_id} ended at {row.simulation_end}s, "
+                f"expected {duration}s."
+            )
+
+    expected_ids = {
+        f"{scenario}_seed{seed}"
+        for scenario in config["scenarios"]
+        for seed in EXPECTED_SEEDS
+    }
+    actual_ids = set(runs["run_id"])
+    if actual_ids != expected_ids:
+        missing_runs = sorted(expected_ids - actual_ids)
+        unexpected_runs = sorted(actual_ids - expected_ids)
+        raise ValueError(
+            "Canonical run set mismatch: "
+            f"missing={missing_runs}, unexpected={unexpected_runs}. "
+            "Collect all 5 scenarios × 4 seeds."
         )
 
     frames = []

@@ -54,7 +54,9 @@ which is why an individual observed mean speed can exceed 13.89 m/s.
 ## 2. Dataset and quality
 
 The analysis uses the canonical 20-run dataset: five scenarios times four seeds
-(42-45), one simulated hour per run.
+(42-45), one simulated hour per run. The loader validates every run's manifest
+configuration, route, and canonical network hashes, and requires exactly this
+scenario-by-seed set; stale or mixed data is rejected instead of being analysed.
 
 | Metric | Value |
 |---|---:|

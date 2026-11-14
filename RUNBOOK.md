@@ -496,12 +496,13 @@ Expected:
 
 ```text
 ............                                                             [100%]
-12 passed in 2.08s
+14 passed
 ```
 
 The M2 tests cover byte-identical route generation, calibrated scenario values,
 collector CSV-schema validation, configuration hashing, stable network hashing
-that ignores netconvert's timestamp, and SUMO binary resolution error handling.
+that ignores netconvert's timestamp, SUMO binary resolution error handling, and
+baseline provenance validation against the exact canonical 20-run set.
 
 ---
 
@@ -829,7 +830,7 @@ intervals and paired statistical tests.
 | M2 | `python -m src.simulation.data_collector --seed 42 --seed 43 --seed 44 --seed 45` | 20 CSVs + manifest |
 | M2 | Add `--overwrite` | Regenerate existing runs |
 | M2 | `python -m src.analysis.characterise_baseline` | Baseline CSVs + plots + report |
-| M2 | `python -m pytest -q` | 12 passed |
+| M2 | `python -m pytest -q` | 14 passed |
 | M3 | `python -m src.preprocessing.build_dataset` | Processed dataset 📋 |
 | M3 | `python -m src.supervised.train --config configs\sl.yaml` | SL models 📋 |
 | M4 | `python -m src.reinforcement.train --config configs\rl.yaml` | RL model 📋 |
@@ -858,7 +859,7 @@ intervals and paired statistical tests.
 - [x] High demand calibrated to 700/approach and confirmed stable.
 - [x] Changing scenario includes a recovery phase (400 → 800 → 400).
 - [x] Baseline characterisation and `docs/fixed_time_baseline.md` completed.
-- [x] Automated M2 tests pass (`12 passed`).
+- [x] Automated M2 tests pass (`14 passed`).
 - [x] Reproducibility verified with fixed seeds.
 
 ### M3–M6 📋
