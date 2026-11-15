@@ -1,0 +1,47 @@
+# Reinforcement-learning contract for the single four-way intersection.
+#
+# The environment wraps SUMO/TraCI. Actions select a green phase; yellow and
+# clearance phases are inserted by the environment. The fixed-time baseline can
+# run the network's native static programme with fixed_time=true.
+
+environment:
+  traffic_config: configs/traffic_scenarios.yaml
+  network_config: sumo/network/intersection.sumocfg
+  tls_id: C
+  decision_interval: 15       # seconds between agent decisions
+  min_green: 5                # seconds; early switches are ignored
+  max_green: 60               # seconds; forces the next green after this
+  yellow_seconds: 3           # clearance inserted between conflicting greens
+  state: S0                   # S0 current only, S1 + phase elapsed, S2 + SL
+
+actions:
+  # Green phases from sumo/network/intersection.net.xml. The paired yellow
+  # phase is inserted automatically, so the agent cannot select yellow.
+  green_phases: [0, 2, 4, 6]
+  yellow_phases: [1, 3, 5, 7]
+  names:
+    - north_south_through
+    - north_south_left
+    - east_west_through
+    - east_west_left
+
+reward:
+  # reward = -(alpha * total_queue + beta * total_waiting_time)
+  alpha: 1.0
+  beta: 0.1
+
+training:
+  episodes: 200
+  gamma: 0.95
+  learning_rate: 0.001
+  epsilon_start: 1.0
+  epsilon_end: 0.05
+  epsilon_decay: 0.995
+  batch_size: 64
+  replay_size: 10000
+  target_update_steps: 500
+
+evaluation:
+  scenarios: [low, medium, high, uneven, changing]
+  seeds: [42, 43, 44, 45]
+  fixed_time_baseline: true

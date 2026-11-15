@@ -13,8 +13,8 @@ Use this guide with [`FILES.md`](FILES.md), which explains what each file does.
 > ✅ implemented and runnable now · 📋 planned, command not available yet
 >
 > **Current state:** M1 and M2 (dataset + fixed-time baseline) are complete.
-> The M3 dataset, feature sets and splits are built; M3 model training and
-> M4–M6 are still planned.
+> The M3 dataset, feature sets, splits and EDA are built, and the shared SL/RL
+> contract is frozen. M3 model training and the M4 agents are next.
 
 ---
 
@@ -500,14 +500,15 @@ Expected:
 
 ```text
 .............................                                            [100%]
-29 passed
+46 passed
 ```
 
 The M2 subset covers byte-identical route generation, calibrated scenario values,
 collector CSV-schema validation, configuration hashing, stable network hashing
 that ignores netconvert's timestamp, SUMO binary resolution error handling, and
 baseline provenance validation against the exact canonical 20-run set. M3 adds
-the dataset/leakage tests and EDA helper tests.
+the dataset/leakage tests and EDA helper tests; the contract adds shared-metric,
+SL-registry and RL-environment tests.
 
 ---
 
@@ -647,13 +648,15 @@ and can be recreated. Share the CSVs separately if a teammate cannot run SUMO.
 
 ## M3 — Supervised-learning pipeline 🚧
 
-> **Status: dataset builder and EDA implemented and verified (15 November 2026).**
-> SL model training, tuning and evaluation are still planned. The dataset and
-> EDA commands below work today; the model commands are the intended interface.
+> **Status: dataset builder, EDA and shared SL interface implemented and verified
+> (15 November 2026).** SL model training, tuning and evaluation are still
+> planned. The dataset, EDA and contract commands below work today; the model
+> commands are the intended interface.
 >
 > Full methodology, row accounting, split rationale and limitations:
 > [`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md).
 > EDA findings: [`docs/sl_eda.md`](docs/sl_eda.md).
+> Frozen SL/RL APIs: [`docs/contract_v1.md`](docs/contract_v1.md).
 
 ### Commands
 
@@ -710,34 +713,45 @@ This runbook only lists commands and outputs.
 
 ---
 
-## M4 — RL-only controller 📋
+## M4 — RL-only controller 🚧
 
-> **Status: planned — not implemented yet.**
-> Intended interface; command names and flags will be finalized with the code.
+> **Status: environment, safe action contract, fixed-time controller and shared
+> metrics implemented (15 November 2026).** Q-Learning/DQN training and
+> evaluation commands are still planned.
+>
+> Frozen state/action/reward and API definitions:
+> [`docs/contract_v1.md`](docs/contract_v1.md).
 
-### Planned commands
+### Commands
 
 ```powershell
-# Train the RL agent against SUMO
+# Smoke-test the environment with the native fixed-time programme
+python -m src.reinforcement.environment --scenario medium --seed 42 --duration 120 --policy fixed
+
+# Smoke-test safe phase switching (exercises yellow transitions)
+python -m src.reinforcement.environment --scenario medium --seed 42 --duration 120 --policy alternate
+
+# Planned: train an RL agent against SUMO
 python -m src.reinforcement.train --config configs\rl.yaml
 
-# Evaluate a trained agent on held-out episodes
+# Planned: evaluate a trained agent on held-out episodes
 python -m src.reinforcement.evaluate --config configs\rl.yaml --episodes 10
 ```
 
-### Planned outputs
+### Outputs
 
 ```text
-models\rl\*.pt                        # checkpoints and final agent
-results\rl\training_curve.png
-results\rl\eval_metrics.csv
-results\rl\per_episode_rewards.csv
+console metrics JSON                   # ✅ fixed/alternate smoke runs
+models\rl\*.pt                         # 📋 checkpoints and final agent
+results\rl\training_curve.png          # 📋 training curve
+results\rl\eval_metrics.csv            # 📋 evaluation metrics
+results\rl\per_episode_rewards.csv     # 📋 episode rewards
 ```
 
-### What will be compared
+### What is compared
 
-- State `S0`/`S1`: current counts, queues, speeds, phase, elapsed phase time.
-- Action: valid non-conflicting TLS phase (and optional green duration).
+- State `S0`/`S1`: counts, queues, speeds, phase, and elapsed phase time; `S2` adds four SL predictions.
+- Action: one of four valid green phases; yellow/clearance is inserted automatically.
 - Reward: `-(alpha × total_queue + beta × total_waiting_time)`.
 - RL-only training **without** SL predictions, so it is a fair baseline.
 - Multiple seeds; report mean and spread.
@@ -845,10 +859,12 @@ intervals and paired statistical tests.
 | M2 | `python -m src.simulation.data_collector --seed 42 --seed 43 --seed 44 --seed 45` | 20 CSVs + manifest |
 | M2 | Add `--overwrite` | Regenerate existing runs |
 | M2 | `python -m src.analysis.characterise_baseline` | Baseline CSVs + plots + report |
-| M2 | `python -m pytest -q` | 29 passed |
+| M2 | `python -m pytest -q` | 46 passed |
 | M3 | `python -m src.preprocessing.build_dataset` | Dataset + splits + audit ✅ |
 | M3 | `python -m src.analysis.explore_sl_dataset` | EDA tables + figures ✅ |
 | M3 | `python -m src.supervised.train --config configs\sl.yaml` | SL models 📋 |
+| M4 | `python -m src.reinforcement.environment --scenario medium --seed 42 --duration 120 --policy fixed` | Fixed-time smoke metrics ✅ |
+| M4 | `python -m src.reinforcement.environment --scenario medium --seed 42 --duration 120 --policy alternate` | Safe-transition smoke metrics ✅ |
 | M4 | `python -m src.reinforcement.train --config configs\rl.yaml` | RL model 📋 |
 | M5 | `python -m src.hybrid.train --config configs\hybrid.yaml` | Hybrid model 📋 |
 | M6 | `python experiments\run_all.py --config configs\final.yaml` | Final results 📋 |
@@ -875,13 +891,14 @@ intervals and paired statistical tests.
 - [x] High demand calibrated to 700/approach and confirmed stable.
 - [x] Changing scenario includes a recovery phase (400 → 800 → 400).
 - [x] Baseline characterisation and `docs/fixed_time_baseline.md` completed.
-- [x] Automated M2 tests pass (14 M2 tests; 29 total with M3).
+- [x] Automated M2 tests pass (14 M2 tests; 46 total with M3 and contract).
 - [x] Reproducibility verified with fixed seeds.
 
 ### M3–M6 🚧
 
 - [x] M3: dataset, feature sets, chronological splits, audit, and EDA.
+- [x] M4: fixed-time controller, safe RL environment and shared metrics.
 - [ ] M3: baseline/tuned SL models, evaluation, and error analysis.
-- [ ] M4: RL environment, Q-Learning/DQN, evaluation.
+- [ ] M4: Q-Learning/DQN agents, evaluation, and state ablation.
 - [ ] M5: frozen SL + retrained hybrid agent.
 - [ ] M6: fixed-time vs RL-only vs hybrid comparison and report.

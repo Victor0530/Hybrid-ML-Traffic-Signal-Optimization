@@ -2,8 +2,8 @@
 
 > **Project title:** An Intelligent Hybrid Supervised and Reinforcement
 > Learning-Based Adaptive Traffic Signal Optimisation System\
-> **Status:** Implementation in progress --- M1 and M2 complete; M3 dataset and splits done, SL models next\
-> **Last updated:** 2026-11-14\
+> **Status:** Implementation in progress --- M1 and M2 complete; M3 dataset/EDA done; shared SL/RL contract ready for parallel model work\
+> **Last updated:** 2026-11-15\
 > **Primary language:** Python\
 > **Simulation environment:** Eclipse SUMO\
 > **Integration interface:** TraCI\
@@ -15,8 +15,8 @@
 |---|---|---|
 | M1 --- Environment works | ✅ Complete | Four-way SUMO network, fixed-time 90 s TLS, TraCI smoke test |
 | M2 --- Data collection works | ✅ Complete | 5 scenarios × 4 seeds = 20 runs, 57,600 rows, fixed-time baseline report |
-| M3 --- SL pipeline | 🚧 In progress | 38,400-row dataset with F0–F4 features and leakage-safe chronological splits; models not started |
-| M4 --- RL-only pipeline | 📋 Planned | Depends on M3 |
+| M3 --- SL pipeline | 🚧 In progress | 38,400-row dataset, F0-F4 features, leakage-safe splits and EDA done; model training next |
+| M4 --- RL-only pipeline | 🚧 Contract ready | Shared SL/RL interfaces, safe environment, fixed-time controller and metrics frozen; agents next |
 | M5 --- Hybrid SL + RL | 📋 Planned | Depends on M4 |
 | M6 --- Final experiments | 📋 Planned | Depends on M5 |
 
@@ -1247,7 +1247,7 @@ from SUMO runs. ✅
 
 -   [x] Define the five-minute prediction target.
 -   [x] Create chronological train/validation/test splits with a 300 s embargo.
--   [ ] Perform EDA.
+-   [x] Perform EDA.
 -   [ ] Train candidate regression models.
 -   [ ] Evaluate and select top candidates.
 -   [ ] Tune selected candidates.
@@ -1269,15 +1269,19 @@ rationale are in
 [`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md);
 EDA findings are in [`docs/sl_eda.md`](docs/sl_eda.md); commands are in
 [`RUNBOOK.md`](RUNBOOK.md) §M3 and the one-command quickstart is
-[`docs/reproduce.md`](docs/reproduce.md). Model training is the next step.
+[`docs/reproduce.md`](docs/reproduce.md). The shared SL/RL interfaces,
+preprocessing contract, prediction API, safe RL environment, fixed-time
+controller and common metrics are frozen in
+[`docs/contract_v1.md`](docs/contract_v1.md); model training and RL agents now
+proceed in parallel on top of that contract.
 
 **Acceptance check:** The best model can load and produce predictions
 from a new observation window without data leakage.
 
 ### Milestone 4 --- RL-only pipeline works
 
--   [ ] Implement a fixed-time controller.
--   [ ] Implement a safe RL environment wrapper.
+-   [x] Implement a fixed-time controller.
+-   [x] Implement a safe RL environment wrapper.
 -   [ ] Implement Q-Learning.
 -   [ ] Implement DQN if feasible.
 -   [ ] Train and evaluate agents across multiple seeds.
@@ -1289,6 +1293,14 @@ from a new observation window without data leakage.
 
 **Acceptance check:** An RL agent can interact with SUMO, select valid
 actions and produce logged evaluation metrics.
+
+**Progress (15 November 2026):** the contract is implemented in
+`src/reinforcement/environment.py`, `src/reinforcement/controllers.py` and
+`configs/rl.yaml`. The environment exposes safe green-phase actions, inserts
+yellow phases automatically, enforces minimum/maximum green, and can run the
+native fixed-time programme. Observation states S0/S1/S2 and the shared traffic
+metrics are frozen in [`docs/contract_v1.md`](docs/contract_v1.md); Q-Learning
+and DQN implementations are next.
 
 ### Milestone 5 --- Hybrid works
 

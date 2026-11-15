@@ -328,7 +328,8 @@ The structure is a suggested starting point. It can be adjusted as the implement
 > [docs/fixed_time_baseline.md](docs/fixed_time_baseline.md). For the M3 dataset,
 > target, feature sets and split methodology, see
 > [docs/supervised_learning_dataset.md](docs/supervised_learning_dataset.md); for
-> the M3 EDA findings, see [docs/sl_eda.md](docs/sl_eda.md).
+> the M3 EDA findings, see [docs/sl_eda.md](docs/sl_eda.md); and for the frozen
+> shared SL/RL interfaces, see [docs/contract_v1.md](docs/contract_v1.md).
 
 ### Prerequisites
 
@@ -400,7 +401,7 @@ The project is being developed in the following stages:
 1. ✅ **Environment setup (complete):** Install and verify Python, SUMO and TraCI; create the four-way intersection.
 2. ✅ **Traffic data generation (complete):** Configure traffic scenarios, collect observations and prepare the dataset.
 3. 🚧 **SL development (in progress):** Dataset, feature sets, chronological splits and EDA are complete; train, evaluate and optimise the prediction models next.
-4. 📋 **RL development (planned):** Implement, train, evaluate and optimise RL controllers without SL predictions.
+4. 🚧 **RL development (contract ready):** The shared environment, fixed-time controller and metrics are frozen; implement, train and evaluate RL controllers without SL predictions.
 5. 📋 **Hybrid integration (planned):** Add predictions from the selected SL model to the RL state, then train or fine-tune the hybrid agent.
 6. 📋 **Final evaluation (planned):** Compare fixed-time, RL-only and hybrid controllers under matched traffic scenarios.
 7. 📋 **Reporting (planned):** Analyse results, discuss limitations and prepare the final report.

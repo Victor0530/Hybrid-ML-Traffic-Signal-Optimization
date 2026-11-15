@@ -24,8 +24,8 @@ runbook explains **how to run and reproduce it**.
 |---|---|---|
 | **M1** | Environment and SUMO simulation work | ✅ Complete |
 | **M2** | Reproducible traffic dataset and fixed-time baseline | ✅ Complete |
-| **M3** | Supervised-learning pipeline | 🚧 In progress — dataset done, models next |
-| **M4** | RL-only signal controller | 📋 Planned |
+| **M3** | Supervised-learning pipeline | 🚧 In progress - dataset/EDA and interface contract done; models next |
+| **M4** | RL-only signal controller | 🚧 Contract ready - environment and fixed-time baseline done; agents next |
 | **M5** | Hybrid SL + RL controller | 📋 Planned |
 | **M6** | Final comparison and report | 📋 Planned |
 
@@ -47,12 +47,13 @@ Adaptive Traffic Signal Optimisation System/
 │   ├── fixed_time_baseline.md      # ✅ fixed-time baseline report
 │   ├── supervised_learning_dataset.md # ✅ M3 dataset/feature/split methodology
 │   ├── sl_eda.md                   # ✅ M3 exploratory-analysis report
-│   └── reproduce.md                # ✅ one-command teammate quickstart
+│   ├── reproduce.md                # ✅ one-command teammate quickstart
+│   └── contract_v1.md              # ✅ shared SL/RL interface contract
 │
 ├── configs/
 │   ├── traffic_scenarios.yaml      # ✅ demand + simulation settings
 │   ├── sl.yaml                     # ✅ SL paths, splits and feature-set config
-│   ├── rl.yaml                     # 📋 planned RL configuration
+│   ├── rl.yaml                     # ✅ frozen RL environment/action/reward config
 │   ├── hybrid.yaml                 # 📋 planned hybrid configuration
 │   └── final.yaml                  # 📋 planned final-evaluation configuration
 │
@@ -88,10 +89,10 @@ Adaptive Traffic Signal Optimisation System/
 │   │   ├── __init__.py
 │   │   ├── features.py
 │   │   └── build_dataset.py
-│   ├── supervised/                 # 📋 SL training/evaluation
-│   ├── reinforcement/              # 📋 RL environment and agents
+│   ├── supervised/                 # 🚧 contract ready; model lanes next
+│   ├── reinforcement/              # 🚧 env/fixed-time ready; agents next
 │   ├── hybrid/                     # 📋 hybrid controller
-│   ├── evaluation/                 # 📋 final comparison and statistics
+│   ├── evaluation/                 # 🚧 shared metrics ready; final statistics next
 │   └── utils/                      # 📋 shared helpers
 │
 ├── models/                         # 📋 trained models (gitignored)
@@ -243,45 +244,53 @@ implications are in [`docs/fixed_time_baseline.md`](docs/fixed_time_baseline.md)
 **Goal:** predict traffic volume five minutes ahead from current and past
 observations.
 
-The dataset, feature sets and splits are built. Model training is next. Full
-methodology, row accounting, split rationale, audit results and limitations are
-in [`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md).
+The dataset, feature sets, splits and EDA are built. The shared SL interface is
+frozen; model training is next. Full methodology, row accounting, split
+rationale, audit results and limitations are in
+[`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md).
 
 | Path | Status | Purpose | Output |
 |---|---|---|---|
 | `src/preprocessing/` | ✅ | Load and audit the raw CSVs, validate timestamp continuity, build causal lag/rolling/cross-direction features, construct the 5-minute-ahead target, and assign chronological splits with an embargo. | `sl_dataset.csv`, split files, feature map, audit. |
 | `data/processed/` | ✅ generated | Processed dataset, chronological split files, feature map and audit. | Gitignored; rebuild with `build_dataset.py`. |
-| `src/supervised/` | 📋 | Baseline and candidate models: Ridge/Linear Regression, Decision Tree, Random Forest, HistGradientBoosting or XGBoost, tuning, evaluation, blending and the hybrid prediction interface. | Metrics, predictions, feature importances. |
+| `src/supervised/` | 🚧 contract ready | Loads frozen splits, fits train-only preprocessing, registers model candidates and exposes the `[N, S, E, W]` prediction API. Model lanes add the fitted candidates next. | Metrics, predictions, feature importances. |
 | `configs/sl.yaml` | ✅ | Dataset paths, split boundaries, warm-up, feature-set default and output names. Simulation duration/horizon still come from `traffic_scenarios.yaml`. | Read by `build_dataset.py` and future training scripts. |
 | `src/analysis/explore_sl_dataset.py` | ✅ | Descriptive EDA: target distributions, feature correlations, within-run autocorrelation, split shift and report figures. | `results/sl/eda/` tables and plots. |
 | `models/sl/` | 📋 | Trained model artifacts and fitted preprocessing pipelines. | `.joblib`/model files (gitignored). |
 | `results/sl/` | ✅/📋 | EDA tables/figures are complete; model metrics, residual plots and ablation results are next. | Figures and CSV/JSON metrics (gitignored). |
 | `notebooks/01_eda.ipynb` | ✅ | Thin optional notebook wrapper around `explore_sl_dataset.py`; it does not duplicate the analysis. | Notebook, runnable when Jupyter is installed. |
-| `tests/` | ✅ | M2 tests plus M3 feature-construction, target-alignment, leakage, split-embargo, dataset-output and EDA-helper tests (29 tests total). | `pytest` results. |
+| `tests/` | ✅ | M2 tests plus M3 feature-construction, target-alignment, leakage, split-embargo, dataset-output, EDA-helper and shared-contract tests (46 tests total). | `pytest` results. |
 
 The M3 row counts, split boundaries, feature definitions, audit results and
 design rules are documented once in
 [`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md).
+The frozen SL data, preprocessing, registry and prediction interfaces are in
+[`docs/contract_v1.md`](docs/contract_v1.md).
 This file is only a milestone-ordered map of paths, not a methodology duplicate.
 
 ---
 
-## M4 — Reinforcement learning (planned)
+## M4 — Reinforcement learning (contract ready)
 
 **Goal:** train an RL signal controller in SUMO and compare it with fixed-time
 control.
 
-| Path | Status | Planned purpose | Expected output |
+The environment, safe action rules, observation vectors, fixed-time controller
+and shared metrics are frozen in [`docs/contract_v1.md`](docs/contract_v1.md).
+Q-Learning and DQN agents are next.
+
+| Path | Status | Purpose | Expected output |
 |---|---|---|---|
-| `src/reinforcement/` | 📋 | SUMO environment wrapper, state/action/reward logic, Q-Learning and DQN agents, training and evaluation loops. | Training scripts and evaluation code. |
-| `configs/rl.yaml` | 📋 | Episode length, learning rate, discount factor, exploration schedule, network architecture, seeds, and reward weights. | Read by RL training/evaluation. |
+| `src/reinforcement/` | 🚧 contract ready | TraCI environment with `reset`/`step`, automatic yellow transitions, min/max green enforcement and the fixed-time controller. Q-Learning/DQN modules are added next. | Environment API, training and evaluation code. |
+| `configs/rl.yaml` | ✅ | Decision interval, green limits, action mapping, reward weights, training hyperparameters and evaluation seeds. | Read by RL training/evaluation. |
+| `src/evaluation/metrics.py` | ✅ | Shared regression and traffic metrics for SL, RL and final comparisons. | Metric dictionaries and tables. |
 | `models/rl/` | 📋 | Checkpoints and final RL models. | Model files (gitignored). |
 | `results/rl/` | 📋 | Learning curves, per-episode rewards, waiting/queue metrics, and ablation results. | Figures and metric tables (gitignored). |
 
 ### M4 design rules to preserve
 
-- State `S0`/`S1`: current counts, queues, speeds, signal phase, and elapsed phase time.
-- Action: choose a valid non-conflicting TLS phase; optional green duration.
+- State `S0`/`S1`: counts, queues, speeds, signal phase, and (S1) elapsed phase time; `S2` adds four SL predictions.
+- Action: select one of four valid green phases; yellow/clearance is inserted automatically by the environment.
 - Reward: `-(alpha × total_queue + beta × total_waiting_time)`.
 - Train **without** SL predictions first; this is the RL-only baseline.
 - Use multiple seeds and report mean ± spread.
@@ -348,9 +357,11 @@ spread, not just a single run.
 | `docs/supervised_learning_dataset.md` | ✅ | M3 dataset report: long-format design, target, F0-F4 definitions, chronological splits and embargo, row accounting, audit, tests, limitations, and report-section map. Tracked by Git. |
 | `docs/sl_eda.md` | ✅ | M3 EDA report: target distributions, feature correlations, autocorrelation, phase summary, split shift and modelling implications. Tracked by Git. |
 | `docs/reproduce.md` | ✅ | One-command teammate quickstart: setup, `python -m experiments.reproduce`, variants, outputs and common failures. Tracked by Git. |
+| `docs/contract_v1.md` | ✅ | Frozen shared SL/RL contract: data/preprocessing/registry/prediction APIs, environment reset/step, S0-S2 states, action safety, reward, shared metrics, parallel lane rules and acceptance checks. Tracked by Git. |
 | `src/analysis/` | ✅ | M2 baseline and M3 EDA code. `characterise_baseline.py` writes `results/fixed_time_baseline/`; `explore_sl_dataset.py` writes `results/sl/eda/`. |
 | `experiments/reproduce.py` | ✅ | Idempotent M1-M3 orchestrator: environment checks, routes, collection, baseline, dataset, EDA and tests. |
-| `tests/` | ✅/📋 | M2 automated tests for route generation, dataset schema validation, config hashing, stable network hashing, binary resolution, and baseline provenance/canonical run-set validation; M3-M6 tests are added with their phases. |
+| `src/evaluation/` | ✅/📋 | `metrics.py` provides the frozen regression and traffic metric definitions shared by SL, RL and final comparisons; bootstrap and paired-test helpers are added in M6. |
+| `tests/` | ✅ | 46 automated tests covering route generation, schema validation, hashing, dataset construction, leakage, splits, EDA, shared metrics, the SL contract and the RL contract. |
 | `src/utils/` | 📋 | Shared helpers such as seeding, logging, and config loading. |
 
 ---
@@ -374,6 +385,7 @@ spread, not just a single run.
 | `docs/supervised_learning_dataset.md` | Written report | Tracked | 1 file |
 | `docs/sl_eda.md` | Written report | Tracked | 1 file |
 | `docs/reproduce.md` | Quickstart | Tracked | 1 file |
+| `docs/contract_v1.md` | Contract report | Tracked | 1 file |
 | `notebooks/01_eda.ipynb` | Notebook wrapper | Tracked | 1 file |
 | `data/processed/sl_dataset.csv` | `build_dataset.py` | Ignored | 38,400 rows |
 | `data/processed/splits/*.csv` | `build_dataset.py` | Ignored | 3 files (24,000 / 9,600 / 4,800 rows) |

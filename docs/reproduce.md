@@ -5,8 +5,10 @@ short. `RUNBOOK.md`, `FILES.md` and the milestone reports are reference material
 not required reading before you start.
 
 The current pipeline covers **M1 (network) + M2 (fixed-time baseline and raw
-data) + M3 (dataset and EDA)**. The M3 supervised models, M4 RL agents and M5
-hybrid are added later; this quickstart will be updated as each milestone lands.
+data) + M3 (dataset and EDA)**. The shared SL/RL contract is included in the
+test suite; see [`contract_v1.md`](contract_v1.md) before writing model code.
+The M3 supervised models, M4 RL agents and M5 hybrid are added later; this
+quickstart will be updated as each milestone lands.
 
 ---
 
@@ -52,7 +54,7 @@ A clean run finishes with something close to:
 ```text
 Rows: 38,400 | runs: 20 | missing cells: 0
 ...
-29 passed
+46 passed
 Done in ...
 ```
 
@@ -146,5 +148,7 @@ them so hashes and manifests stay consistent.
   [`supervised_learning_dataset.md`](supervised_learning_dataset.md)
 - M3 EDA findings:
   [`sl_eda.md`](sl_eda.md)
+- Shared SL/RL interface contract:
+  [`contract_v1.md`](contract_v1.md)
 - Assignment scope and milestones:
   [`../PLAN.md`](../PLAN.md)
