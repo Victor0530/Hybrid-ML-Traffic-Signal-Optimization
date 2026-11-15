@@ -5,12 +5,16 @@ project, ordered by milestone.
 
 Use this guide with [`FILES.md`](FILES.md), which explains what each file does.
 
+> **Just want to run the current system?** Start with
+> [`docs/reproduce.md`](docs/reproduce.md). It is a one-command quickstart; this
+> runbook is the detailed reference.
+
 > **Status legend**
 > ✅ implemented and runnable now · 📋 planned, command not available yet
 >
 > **Current state:** M1 and M2 (dataset + fixed-time baseline) are complete.
-> M3–M6 sections show the intended workflow and will be filled in as each
-> phase is implemented.
+> The M3 dataset, feature sets and splits are built; M3 model training and
+> M4–M6 are still planned.
 
 ---
 
@@ -495,14 +499,15 @@ python -m pytest -q
 Expected:
 
 ```text
-............                                                             [100%]
-14 passed
+.............................                                            [100%]
+29 passed
 ```
 
-The M2 tests cover byte-identical route generation, calibrated scenario values,
+The M2 subset covers byte-identical route generation, calibrated scenario values,
 collector CSV-schema validation, configuration hashing, stable network hashing
 that ignores netconvert's timestamp, SUMO binary resolution error handling, and
-baseline provenance validation against the exact canonical 20-run set.
+baseline provenance validation against the exact canonical 20-run set. M3 adds
+the dataset/leakage tests and EDA helper tests.
 
 ---
 
@@ -640,58 +645,68 @@ and can be recreated. Share the CSVs separately if a teammate cannot run SUMO.
 
 ---
 
-## M3 — Supervised-learning pipeline 📋
+## M3 — Supervised-learning pipeline 🚧
 
-> **Status: planned — not implemented yet.**
-> The commands below describe the intended interface and may change when the
-> phase is built. Do not expect them to work on the current repository.
+> **Status: dataset builder and EDA implemented and verified (15 November 2026).**
+> SL model training, tuning and evaluation are still planned. The dataset and
+> EDA commands below work today; the model commands are the intended interface.
+>
+> Full methodology, row accounting, split rationale and limitations:
+> [`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md).
+> EDA findings: [`docs/sl_eda.md`](docs/sl_eda.md).
 
-### Planned commands
+### Commands
 
 ```powershell
 # Build the modelling dataset, features, target, and chronological splits
 python -m src.preprocessing.build_dataset
 
-# Train and tune the supervised models
+# Rebuild using an explicit configuration path
+python -m src.preprocessing.build_dataset --config configs\sl.yaml
+
+# Run the M3 exploratory data analysis (tables and figures)
+python -m src.analysis.explore_sl_dataset
+
+# Planned: train and tune the supervised models
 python -m src.supervised.train --config configs\sl.yaml
 
-# Evaluate the selected model on the held-out test split
+# Planned: evaluate the selected model on the held-out test split
 python -m src.supervised.evaluate --config configs\sl.yaml --split test
 ```
 
-### Planned outputs
+### Outputs
 
 ```text
-data\processed\sl_dataset.csv          # one row per run/direction/timestamp
-data\processed\splits\train.csv
-data\processed\splits\validation.csv
-data\processed\splits\test.csv
-models\sl\*.joblib                     # fitted models and preprocessors
-results\sl\metrics.csv                 # MAE, RMSE, R²
-results\sl\predictions.csv
-results\sl\feature_importance.png
-results\sl\residuals.png
+data\processed\sl_dataset.csv          # ✅ modelling rows (train+validation+test)
+data\processed\splits\train.csv        # ✅ chronological training split
+data\processed\splits\validation.csv   # ✅ chronological validation split
+data\processed\splits\test.csv         # ✅ chronological test split
+data\processed\feature_columns.json    # ✅ ordered columns for feature sets F0-F4
+data\processed\data_audit.json         # ✅ data-quality and split audit
+results\sl\eda\*.csv, *.json, *.png    # ✅ EDA tables, summary and figures
+models\sl\*.joblib                     # 📋 fitted models and preprocessors
+results\sl\metrics.csv                 # 📋 MAE, RMSE, R²
+results\sl\predictions.csv             # 📋 predictions and residuals
+results\sl\feature_importance.png      # 📋 feature importance
+results\sl\residuals.png               # 📋 residual diagnostics
 ```
 
-### Expected dataset shape
+### Expected result
 
-- Raw samples: 20 runs × 720 timestamps × 4 approaches = **57,600 rows**.
-- With a 300 s target and 5 s sampling, the last **60 samples per run** have no
-  future target and must be dropped.
-- Upper bound after target construction:
-  20 × 660 × 4 = **52,800 rows**, before any additional missing-value handling.
+A correct rebuild prints these counts and writes the five files listed above:
 
-### Design requirements
+```text
+runs: 20
+raw rows: 57,600
+dataset rows: 38,400
+dropped: target undefined 4,800 | warm-up 4,800 | embargo 9,600
+split rows: train 24,000 | validation 9,600 | test 4,800
+```
 
-- Target: `vehicle_count` 300 s ahead, built with
-  `groupby(["run_id", "direction"])["vehicle_count"].shift(-60)`.
-- Chronological splits only; never shuffle time-ordered observations.
-- Fit scalers/encoders on the training split only.
-- Compare Linear Regression, Decision Tree, and Random Forest; optional XGBoost.
-- Report MAE, RMSE, and R²; include feature-set ablations and residual analysis.
-- Use `departed_count`/`arrived_count` for throughput diagnostics; do not use
-  future interval counts as features unless they are shifted like any other lag.
-- Freeze the best tuned SL model for M5.
+Split boundaries, feature definitions, audit details, leakage tests,
+determinism checks and limitations are documented once in the canonical report:
+[`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md).
+This runbook only lists commands and outputs.
 
 ---
 
@@ -830,8 +845,9 @@ intervals and paired statistical tests.
 | M2 | `python -m src.simulation.data_collector --seed 42 --seed 43 --seed 44 --seed 45` | 20 CSVs + manifest |
 | M2 | Add `--overwrite` | Regenerate existing runs |
 | M2 | `python -m src.analysis.characterise_baseline` | Baseline CSVs + plots + report |
-| M2 | `python -m pytest -q` | 14 passed |
-| M3 | `python -m src.preprocessing.build_dataset` | Processed dataset 📋 |
+| M2 | `python -m pytest -q` | 29 passed |
+| M3 | `python -m src.preprocessing.build_dataset` | Dataset + splits + audit ✅ |
+| M3 | `python -m src.analysis.explore_sl_dataset` | EDA tables + figures ✅ |
 | M3 | `python -m src.supervised.train --config configs\sl.yaml` | SL models 📋 |
 | M4 | `python -m src.reinforcement.train --config configs\rl.yaml` | RL model 📋 |
 | M5 | `python -m src.hybrid.train --config configs\hybrid.yaml` | Hybrid model 📋 |
@@ -859,12 +875,13 @@ intervals and paired statistical tests.
 - [x] High demand calibrated to 700/approach and confirmed stable.
 - [x] Changing scenario includes a recovery phase (400 → 800 → 400).
 - [x] Baseline characterisation and `docs/fixed_time_baseline.md` completed.
-- [x] Automated M2 tests pass (`14 passed`).
+- [x] Automated M2 tests pass (14 M2 tests; 29 total with M3).
 - [x] Reproducibility verified with fixed seeds.
 
-### M3–M6 📋
+### M3–M6 🚧
 
-- [ ] M3: SL dataset, baselines, tuned model, metrics.
+- [x] M3: dataset, feature sets, chronological splits, audit, and EDA.
+- [ ] M3: baseline/tuned SL models, evaluation, and error analysis.
 - [ ] M4: RL environment, Q-Learning/DQN, evaluation.
 - [ ] M5: frozen SL + retrained hybrid agent.
 - [ ] M6: fixed-time vs RL-only vs hybrid comparison and report.

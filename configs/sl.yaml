@@ -1,0 +1,39 @@
+# Supervised-learning configuration (Milestone 3).
+#
+# Simulation duration, sampling interval and prediction horizon are read from
+# configs/traffic_scenarios.yaml so there is a single source of truth.
+#
+# Usage:
+#   python -m src.preprocessing.build_dataset --config configs/sl.yaml
+
+data:
+  raw_dir: data/raw
+  manifest: data/raw/run_manifest.csv
+  processed_dir: data/processed
+  splits_dir: data/processed/splits
+
+traffic_config: configs/traffic_scenarios.yaml
+
+split:
+  # Seconds relative to the start of each simulation run. Every split is
+  # separated by an embargo of at least `prediction_horizon` seconds because
+  # neighbouring samples share targets.
+  train_end: 1800
+  validation_start: 2105
+  validation_end: 2700
+  test_start: 3005
+  test_end: 3300 # duration - prediction_horizon; the last valid target
+  embargo_seconds: 300
+
+features:
+  # F0 current counts; F1 + count lags/rolling; F2 + congestion measures;
+  # F3 + signal state; F4 + cross-direction imbalance. See src/preprocessing/features.py.
+  default_set: F4
+  # Drop the first `warmup_seconds` of each run so every row has the full lag
+  # and rolling history available.
+  warmup_seconds: 300
+
+output:
+  dataset: sl_dataset.csv
+  feature_map: feature_columns.json
+  audit: data_audit.json

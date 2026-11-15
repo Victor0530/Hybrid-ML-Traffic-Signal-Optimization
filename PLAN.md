@@ -2,7 +2,7 @@
 
 > **Project title:** An Intelligent Hybrid Supervised and Reinforcement
 > Learning-Based Adaptive Traffic Signal Optimisation System\
-> **Status:** Implementation in progress --- M1 and M2 complete; M3 next\
+> **Status:** Implementation in progress --- M1 and M2 complete; M3 dataset and splits done, SL models next\
 > **Last updated:** 2026-11-14\
 > **Primary language:** Python\
 > **Simulation environment:** Eclipse SUMO\
@@ -15,7 +15,7 @@
 |---|---|---|
 | M1 --- Environment works | ✅ Complete | Four-way SUMO network, fixed-time 90 s TLS, TraCI smoke test |
 | M2 --- Data collection works | ✅ Complete | 5 scenarios × 4 seeds = 20 runs, 57,600 rows, fixed-time baseline report |
-| M3 --- SL pipeline | 📋 Next | Dataset, target, splits and baseline models not started |
+| M3 --- SL pipeline | 🚧 In progress | 38,400-row dataset with F0–F4 features and leakage-safe chronological splits; models not started |
 | M4 --- RL-only pipeline | 📋 Planned | Depends on M3 |
 | M5 --- Hybrid SL + RL | 📋 Planned | Depends on M4 |
 | M6 --- Final experiments | 📋 Planned | Depends on M5 |
@@ -209,7 +209,7 @@ Use references and report this comparison in the related-work section.
 5.  Extract traffic observations at a consistent sampling interval.
 6.  Save reproducible datasets and scenario configurations.
 
-### Phase B --- Supervised Learning 📋 Next
+### Phase B --- Supervised Learning 🚧
 
 1.  Define the prediction target.
 2.  Explore and preprocess the data.
@@ -1243,10 +1243,10 @@ tables and plots in `results/fixed_time_baseline/`. See
 **Acceptance check:** A reproducible script creates a usable dataset
 from SUMO runs. ✅
 
-### Milestone 3 --- SL pipeline works 📋 Next
+### Milestone 3 --- SL pipeline works 🚧
 
--   [ ] Define the five-minute prediction target.
--   [ ] Create chronological train/validation/test splits.
+-   [x] Define the five-minute prediction target.
+-   [x] Create chronological train/validation/test splits with a 300 s embargo.
 -   [ ] Perform EDA.
 -   [ ] Train candidate regression models.
 -   [ ] Evaluate and select top candidates.
@@ -1257,6 +1257,19 @@ from SUMO runs. ✅
     (§7.7--§7.8).
 -   [ ] Test cross-distribution robustness (§7.11).
 -   [ ] Report bootstrap confidence intervals (§7.10).
+
+**Progress (15 November 2026):** `src/preprocessing/build_dataset.py` produces
+38,400 modelling rows (24,000 train / 9,600 validation / 4,800 test), F0–F4
+feature sets (7–41 columns) and a data-quality audit. The required EDA is
+implemented in `src/analysis/explore_sl_dataset.py` with a notebook wrapper,
+figures and a written report; key findings include strong count persistence,
+direction-specific dynamics, and a deliberate high-demand validation block in
+the `changing` scenario. The full dataset methodology, row accounting and split
+rationale are in
+[`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md);
+EDA findings are in [`docs/sl_eda.md`](docs/sl_eda.md); commands are in
+[`RUNBOOK.md`](RUNBOOK.md) §M3 and the one-command quickstart is
+[`docs/reproduce.md`](docs/reproduce.md). Model training is the next step.
 
 **Acceptance check:** The best model can load and produce predictions
 from a new observation window without data leakage.
@@ -1536,10 +1549,10 @@ Additional risks introduced by the expanded experiment plan:
 
 ## 17. Expected Final Deliverables
 
-**Status (14 November 2026):** deliverables 1--3, 7 and 12 are available
-(M1/M2 network, scripts, raw data or regeneration instructions, fixed-time
-controller, README). Deliverable 4 is partially covered by the fixed-time
-baseline plots. Deliverables 5--6 and 8--11, 13 remain for M3--M6.
+**Status (15 November 2026):** deliverables 1--4, 7 and 12 are available
+(M1/M2 network, scripts, raw/processed data or regeneration instructions,
+M3 EDA script, notebook, figures and report, fixed-time controller, README).
+Deliverables 5--6 and 8--11, 13 remain for M3--M6.
 
 1.  SUMO four-way intersection network and configuration.
 2.  Reproducible traffic scenario generation and data collection

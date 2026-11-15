@@ -14,7 +14,7 @@ runbook explains **how to run and reproduce it**.
 | 🚧 | Currently being built |
 | 📋 | Planned — not in the repository yet |
 
-**Last updated:** 2026-11-14, after completing the Milestone 2 baseline characterisation and verification suite.
+**Last updated:** 2026-11-15, after building the Milestone 3 dataset, feature sets and chronological splits.
 
 ---
 
@@ -24,7 +24,7 @@ runbook explains **how to run and reproduce it**.
 |---|---|---|
 | **M1** | Environment and SUMO simulation work | ✅ Complete |
 | **M2** | Reproducible traffic dataset and fixed-time baseline | ✅ Complete |
-| **M3** | Supervised-learning pipeline | 📋 Next |
+| **M3** | Supervised-learning pipeline | 🚧 In progress — dataset done, models next |
 | **M4** | RL-only signal controller | 📋 Planned |
 | **M5** | Hybrid SL + RL controller | 📋 Planned |
 | **M6** | Final comparison and report | 📋 Planned |
@@ -44,18 +44,21 @@ Adaptive Traffic Signal Optimisation System/
 ├── RUNBOOK.md                      # ✅ run/reproduce guide
 ├── AssignmentSpec.md               # ✅ local reference only (gitignored)
 ├── docs/
-│   └── fixed_time_baseline.md      # ✅ fixed-time baseline report
+│   ├── fixed_time_baseline.md      # ✅ fixed-time baseline report
+│   ├── supervised_learning_dataset.md # ✅ M3 dataset/feature/split methodology
+│   ├── sl_eda.md                   # ✅ M3 exploratory-analysis report
+│   └── reproduce.md                # ✅ one-command teammate quickstart
 │
 ├── configs/
 │   ├── traffic_scenarios.yaml      # ✅ demand + simulation settings
-│   ├── sl.yaml                     # 📋 planned SL configuration
+│   ├── sl.yaml                     # ✅ SL paths, splits and feature-set config
 │   ├── rl.yaml                     # 📋 planned RL configuration
 │   ├── hybrid.yaml                 # 📋 planned hybrid configuration
 │   └── final.yaml                  # 📋 planned final-evaluation configuration
 │
 ├── data/
 │   ├── raw/                        # ✅ generated observation CSVs (gitignored)
-│   └── processed/                  # 📋 cleaned datasets and splits (gitignored)
+│   └── processed/                  # ✅ SL dataset, splits, feature map, audit (gitignored)
 │
 ├── sumo/
 │   ├── network/
@@ -77,10 +80,14 @@ Adaptive Traffic Signal Optimisation System/
 │   │   ├── check_connection.py
 │   │   ├── scenario_generator.py
 │   │   └── data_collector.py
-│   ├── analysis/                   # ✅ fixed-time baseline analysis
+│   ├── analysis/                   # ✅ baseline and EDA analysis
 │   │   ├── __init__.py
-│   │   └── characterise_baseline.py
-│   ├── preprocessing/              # 📋 SL dataset and features
+│   │   ├── characterise_baseline.py
+│   │   └── explore_sl_dataset.py
+│   ├── preprocessing/              # ✅ SL dataset, features, target and splits
+│   │   ├── __init__.py
+│   │   ├── features.py
+│   │   └── build_dataset.py
 │   ├── supervised/                 # 📋 SL training/evaluation
 │   ├── reinforcement/              # 📋 RL environment and agents
 │   ├── hybrid/                     # 📋 hybrid controller
@@ -89,8 +96,11 @@ Adaptive Traffic Signal Optimisation System/
 │
 ├── models/                         # 📋 trained models (gitignored)
 ├── results/                        # ✅/📋 generated outputs (gitignored)
-├── experiments/                    # 📋 end-to-end experiment runner
-├── notebooks/                      # 📋 EDA and analysis notebooks
+├── experiments/                    # ✅ end-to-end reproduction runner
+│   ├── __init__.py
+│   └── reproduce.py
+├── notebooks/                      # ✅ EDA notebook wrapper
+│   └── 01_eda.ipynb
 └── tests/                          # ✅ automated tests
 ```
 
@@ -228,37 +238,31 @@ implications are in [`docs/fixed_time_baseline.md`](docs/fixed_time_baseline.md)
 
 ---
 
-## M3 — Supervised learning (planned)
+## M3 — Supervised learning (in progress)
 
 **Goal:** predict traffic volume five minutes ahead from current and past
 observations.
 
-These paths are reserved for the next phase and do not exist yet.
+The dataset, feature sets and splits are built. Model training is next. Full
+methodology, row accounting, split rationale, audit results and limitations are
+in [`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md).
 
-| Path | Status | Planned purpose | Expected output |
+| Path | Status | Purpose | Output |
 |---|---|---|---|
-| `src/preprocessing/` | 📋 | Load and audit the raw CSVs, handle missing/empty observations, build lag and rolling features, construct the 5-minute-ahead target, and create chronological train/validation/test splits. | Clean dataset and split files. |
-| `data/processed/` | 📋 | Processed SL dataset and split files. | `data/processed/` contents (gitignored). |
-| `src/supervised/` | 📋 | Baseline and candidate models: Linear Regression, Decision Tree, Random Forest, optional XGBoost, tuning, evaluation, and blending. | Metrics, predictions, feature importances. |
-| `configs/sl.yaml` | 📋 | Feature-set choice, model hyperparameters, split definition, and random seeds. | Read by SL training scripts. |
-| `models/sl/` | 📋 | Trained model artifacts and any fitted preprocessors. | `.joblib`/model files (gitignored). |
-| `results/sl/` | 📋 | MAE/RMSE/R² tables, residual plots, forecast plots, and ablation results. | Figures and CSV/JSON metrics (gitignored). |
-| `notebooks/` | 📋 | Exploratory data analysis and result interpretation. | Notebooks, optional. |
-| `tests/` | ✅/📋 | M2 tests cover deterministic route generation, collector CSV validation, config hashing, stable network hashing, SUMO binary resolution, and baseline provenance/canonical run-set validation. Feature-construction, leakage, and metric tests are added in M3. | `pytest` results. |
+| `src/preprocessing/` | ✅ | Load and audit the raw CSVs, validate timestamp continuity, build causal lag/rolling/cross-direction features, construct the 5-minute-ahead target, and assign chronological splits with an embargo. | `sl_dataset.csv`, split files, feature map, audit. |
+| `data/processed/` | ✅ generated | Processed dataset, chronological split files, feature map and audit. | Gitignored; rebuild with `build_dataset.py`. |
+| `src/supervised/` | 📋 | Baseline and candidate models: Ridge/Linear Regression, Decision Tree, Random Forest, HistGradientBoosting or XGBoost, tuning, evaluation, blending and the hybrid prediction interface. | Metrics, predictions, feature importances. |
+| `configs/sl.yaml` | ✅ | Dataset paths, split boundaries, warm-up, feature-set default and output names. Simulation duration/horizon still come from `traffic_scenarios.yaml`. | Read by `build_dataset.py` and future training scripts. |
+| `src/analysis/explore_sl_dataset.py` | ✅ | Descriptive EDA: target distributions, feature correlations, within-run autocorrelation, split shift and report figures. | `results/sl/eda/` tables and plots. |
+| `models/sl/` | 📋 | Trained model artifacts and fitted preprocessing pipelines. | `.joblib`/model files (gitignored). |
+| `results/sl/` | ✅/📋 | EDA tables/figures are complete; model metrics, residual plots and ablation results are next. | Figures and CSV/JSON metrics (gitignored). |
+| `notebooks/01_eda.ipynb` | ✅ | Thin optional notebook wrapper around `explore_sl_dataset.py`; it does not duplicate the analysis. | Notebook, runnable when Jupyter is installed. |
+| `tests/` | ✅ | M2 tests plus M3 feature-construction, target-alignment, leakage, split-embargo, dataset-output and EDA-helper tests (29 tests total). | `pytest` results. |
 
-### M3 design rules to preserve
-
-- Target: `vehicle_count` **300 s (60 samples)** ahead, per `run_id` and `direction`.
-- Use `groupby(["run_id", "direction"])["vehicle_count"].shift(-60)`; never impute
-  the target.
-- Keep `mean_speed` empty when `vehicle_count == 0` and expose the
-  `no_vehicles`/`sensor_missing` flags.
-- Use `departed_count`/`arrived_count` for throughput diagnostics. If they are
-  used as features, lag or shift them; never leak the current interval's future
-  counts into the target.
-- Split chronologically, never shuffle time-ordered rows.
-- Fit preprocessing on the training split only.
-- Keep the best SL model frozen for the hybrid phase.
+The M3 row counts, split boundaries, feature definitions, audit results and
+design rules are documented once in
+[`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md).
+This file is only a milestone-ordered map of paths, not a methodology duplicate.
 
 ---
 
@@ -341,7 +345,11 @@ spread, not just a single run.
 | `FILES.md` | ✅ | This file. |
 | `RUNBOOK.md` | ✅ | Command-by-command run and reproduction guide. |
 | `docs/fixed_time_baseline.md` | ✅ | Fixed-time M2 baseline report: TLS phases, data quality, scenario results, saturation/recovery, and RL implications. Tracked by Git. |
-| `src/analysis/` | ✅ | M2 analysis code. `characterise_baseline.py` reads the raw dataset and writes `results/fixed_time_baseline/` plus the report evidence. |
+| `docs/supervised_learning_dataset.md` | ✅ | M3 dataset report: long-format design, target, F0-F4 definitions, chronological splits and embargo, row accounting, audit, tests, limitations, and report-section map. Tracked by Git. |
+| `docs/sl_eda.md` | ✅ | M3 EDA report: target distributions, feature correlations, autocorrelation, phase summary, split shift and modelling implications. Tracked by Git. |
+| `docs/reproduce.md` | ✅ | One-command teammate quickstart: setup, `python -m experiments.reproduce`, variants, outputs and common failures. Tracked by Git. |
+| `src/analysis/` | ✅ | M2 baseline and M3 EDA code. `characterise_baseline.py` writes `results/fixed_time_baseline/`; `explore_sl_dataset.py` writes `results/sl/eda/`. |
+| `experiments/reproduce.py` | ✅ | Idempotent M1-M3 orchestrator: environment checks, routes, collection, baseline, dataset, EDA and tests. |
 | `tests/` | ✅/📋 | M2 automated tests for route generation, dataset schema validation, config hashing, stable network hashing, binary resolution, and baseline provenance/canonical run-set validation; M3-M6 tests are added with their phases. |
 | `src/utils/` | 📋 | Shared helpers such as seeding, logging, and config loading. |
 
@@ -359,7 +367,18 @@ spread, not just a single run.
 | `results/fixed_time_baseline/baseline_timeseries.csv` | `characterise_baseline.py` | Ignored | 5-min bins |
 | `results/fixed_time_baseline/data_quality_summary.csv` | `characterise_baseline.py` | Ignored | 1 table |
 | `results/fixed_time_baseline/*.png` | `characterise_baseline.py` | Ignored | 5 plots |
+| `results/sl/eda/*.csv` | `explore_sl_dataset.py` | Ignored | 10 tables |
+| `results/sl/eda/eda_summary.json` | `explore_sl_dataset.py` | Ignored | 1 summary |
+| `results/sl/eda/*.png` | `explore_sl_dataset.py` | Ignored | 8 plots |
 | `docs/fixed_time_baseline.md` | Written report | Tracked | 1 file |
+| `docs/supervised_learning_dataset.md` | Written report | Tracked | 1 file |
+| `docs/sl_eda.md` | Written report | Tracked | 1 file |
+| `docs/reproduce.md` | Quickstart | Tracked | 1 file |
+| `notebooks/01_eda.ipynb` | Notebook wrapper | Tracked | 1 file |
+| `data/processed/sl_dataset.csv` | `build_dataset.py` | Ignored | 38,400 rows |
+| `data/processed/splits/*.csv` | `build_dataset.py` | Ignored | 3 files (24,000 / 9,600 / 4,800 rows) |
+| `data/processed/feature_columns.json` | `build_dataset.py` | Ignored | F0-F4 column lists |
+| `data/processed/data_audit.json` | `build_dataset.py` | Ignored | 1 audit |
 | `results/*` (other) | demo/evaluation scripts | Ignored | varies |
 | `models/*` | training scripts | Ignored | varies |
 | `data/processed/*` | preprocessing scripts | Ignored | varies |

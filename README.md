@@ -318,10 +318,17 @@ The structure is a suggested starting point. It can be adjusted as the implement
 
 ## 10. Getting Started
 
-> For the exact Windows setup, commands, expected outputs and troubleshooting, see
+> **New teammate or just want to run it?** Start with the one-command quickstart:
+> [docs/reproduce.md](docs/reproduce.md). It is intentionally shorter than the
+> reference guides.
+>
+> For exact Windows setup, commands, expected outputs and troubleshooting, see
 > [RUNBOOK.md](RUNBOOK.md). For a milestone-ordered map of every file and folder,
 > see [FILES.md](FILES.md). For the completed M2 fixed-time baseline analysis, see
-> [docs/fixed_time_baseline.md](docs/fixed_time_baseline.md).
+> [docs/fixed_time_baseline.md](docs/fixed_time_baseline.md). For the M3 dataset,
+> target, feature sets and split methodology, see
+> [docs/supervised_learning_dataset.md](docs/supervised_learning_dataset.md); for
+> the M3 EDA findings, see [docs/sl_eda.md](docs/sl_eda.md).
 
 ### Prerequisites
 
@@ -392,7 +399,7 @@ The project is being developed in the following stages:
 
 1. ✅ **Environment setup (complete):** Install and verify Python, SUMO and TraCI; create the four-way intersection.
 2. ✅ **Traffic data generation (complete):** Configure traffic scenarios, collect observations and prepare the dataset.
-3. 📋 **SL development (next):** Train, evaluate and optimise traffic-volume prediction models.
+3. 🚧 **SL development (in progress):** Dataset, feature sets, chronological splits and EDA are complete; train, evaluate and optimise the prediction models next.
 4. 📋 **RL development (planned):** Implement, train, evaluate and optimise RL controllers without SL predictions.
 5. 📋 **Hybrid integration (planned):** Add predictions from the selected SL model to the RL state, then train or fine-tune the hybrid agent.
 6. 📋 **Final evaluation (planned):** Compare fixed-time, RL-only and hybrid controllers under matched traffic scenarios.
