@@ -13,8 +13,10 @@ Use this guide with [`FILES.md`](FILES.md), which explains what each file does.
 > ✅ implemented and runnable now · 📋 planned, command not available yet
 >
 > **Current state:** M1 and M2 (dataset + fixed-time baseline) are complete.
-> The M3 dataset, feature sets, splits and EDA are built, and the shared SL/RL
-> contract is frozen. M3 model training and the M4 agents are next.
+> The M3 dataset, feature sets, splits and EDA are built, the shared SL/RL
+> contract is frozen, and both the SL and RL train/evaluate harnesses are
+> runnable. SL model training/selection and full RL
+> agent training are next — the two lanes run in parallel.
 
 ---
 
@@ -648,10 +650,11 @@ and can be recreated. Share the CSVs separately if a teammate cannot run SUMO.
 
 ## M3 — Supervised-learning pipeline 🚧
 
-> **Status: dataset builder, EDA and shared SL interface implemented and verified
-> (15 November 2026).** SL model training, tuning and evaluation are still
-> planned. The dataset, EDA and contract commands below work today; the model
-> commands are the intended interface.
+> **Status: dataset builder, EDA, shared SL interface, and the
+> train/evaluate harness implemented and verified.**
+> Training, tuning and evaluation commands work today; candidate model
+> selection, the ensemble blend and the error-analysis outputs are still
+> pending.
 >
 > Full methodology, row accounting, split rationale and limitations:
 > [`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md).
@@ -670,11 +673,18 @@ python -m src.preprocessing.build_dataset --config configs\sl.yaml
 # Run the M3 exploratory data analysis (tables and figures)
 python -m src.analysis.explore_sl_dataset
 
-# Planned: train and tune the supervised models
+# Train the registered candidates on the frozen train split (scores on validation)
 python -m src.supervised.train --config configs\sl.yaml
 
-# Planned: evaluate the selected model on the held-out test split
-python -m src.supervised.evaluate --config configs\sl.yaml --split test
+# Train specific candidates on a specific feature set
+python -m src.supervised.train --models ridge decision_tree --feature-set F4
+
+# Tune a candidate with time-aware cross-validation (grid from configs\sl.yaml)
+python -m src.supervised.train --models random_forest --tune
+
+# Evaluate a saved predictor on validation (default) or the held-out test split
+python -m src.supervised.evaluate --model ridge --feature-set F4
+python -m src.supervised.evaluate --model ridge --feature-set F4 --split test
 ```
 
 ### Outputs
@@ -687,8 +697,9 @@ data\processed\splits\test.csv         # ✅ chronological test split
 data\processed\feature_columns.json    # ✅ ordered columns for feature sets F0-F4
 data\processed\data_audit.json         # ✅ data-quality and split audit
 results\sl\eda\*.csv, *.json, *.png    # ✅ EDA tables, summary and figures
-models\sl\*.joblib                     # 📋 fitted models and preprocessors
-results\sl\metrics.csv                 # 📋 MAE, RMSE, R²
+models\sl\<set>\<model>\predictor.joblib  # ✅ fitted predictors (after train)
+results\sl\metrics\<set>\<model>.json     # ✅ train/validation metrics per model
+results\sl\metrics\<set>\summary.csv     # ✅ ranked comparison table
 results\sl\predictions.csv             # 📋 predictions and residuals
 results\sl\feature_importance.png      # 📋 feature importance
 results\sl\residuals.png               # 📋 residual diagnostics
@@ -715,9 +726,11 @@ This runbook only lists commands and outputs.
 
 ## M4 — RL-only controller 🚧
 
-> **Status: environment, safe action contract, fixed-time controller and shared
-> metrics implemented (15 November 2026).** Q-Learning/DQN training and
-> evaluation commands are still planned.
+> **Status: environment, safe action contract, fixed-time controller, shared
+> metrics, and the RL train/evaluate harness implemented and
+> verified.** No agent implementation ships with the project — register your
+> own (see `src/reinforcement/agents.py`). Multi-seed runs, hyperparameter
+> sweeps, state ablation and §8.8 diagnostics are still pending.
 >
 > Frozen state/action/reward and API definitions:
 > [`docs/contract_v1.md`](docs/contract_v1.md).
@@ -731,21 +744,26 @@ python -m src.reinforcement.environment --scenario medium --seed 42 --duration 1
 # Smoke-test safe phase switching (exercises yellow transitions)
 python -m src.reinforcement.environment --scenario medium --seed 42 --duration 120 --policy alternate
 
-# Planned: train an RL agent against SUMO
-python -m src.reinforcement.train --config configs\rl.yaml
+# Train your own agent against SUMO (hyperparameters from configs\rl_agents.yaml)
+python -m src.reinforcement.train --agent <registered_agent> --scenario medium --episodes 200
 
-# Planned: evaluate a trained agent on held-out episodes
-python -m src.reinforcement.evaluate --config configs\rl.yaml --episodes 10
+# Evaluate the fixed-time baseline on the held-out evaluation grid
+python -m src.reinforcement.evaluate --agent fixed --episodes 10
+
+# Evaluate a trained agent (greedy, checkpoint loaded)
+python -m src.reinforcement.evaluate --agent <registered_agent> --checkpoint models\rl\<agent>\<run> --episodes 10
 ```
 
 ### Outputs
 
 ```text
 console metrics JSON                   # ✅ fixed/alternate smoke runs
-models\rl\*.pt                         # 📋 checkpoints and final agent
-results\rl\training_curve.png          # 📋 training curve
-results\rl\eval_metrics.csv            # 📋 evaluation metrics
-results\rl\per_episode_rewards.csv     # 📋 episode rewards
+models\rl\<agent>\<scenario>_seed<seed>\checkpoint.*  # ✅ checkpoints (.npz / .pt)
+results\rl\<agent>\train_*.csv         # ✅ per-episode training log
+results\rl\<agent>\train_*.json        # ✅ training summary
+results\rl\<agent>\eval_*.csv          # ✅ per-episode evaluation rows
+results\rl\<agent>\eval_*.json         # ✅ mean/std metrics + per-scenario breakdown
+results\rl\training_curve.png          # 📋 training curve plot
 ```
 
 ### What is compared
@@ -862,10 +880,10 @@ intervals and paired statistical tests.
 | M2 | `python -m pytest -q` | 46 passed |
 | M3 | `python -m src.preprocessing.build_dataset` | Dataset + splits + audit ✅ |
 | M3 | `python -m src.analysis.explore_sl_dataset` | EDA tables + figures ✅ |
-| M3 | `python -m src.supervised.train --config configs\sl.yaml` | SL models 📋 |
+| M3 | `python -m src.supervised.train --config configs\sl.yaml` | SL models ✅ |
 | M4 | `python -m src.reinforcement.environment --scenario medium --seed 42 --duration 120 --policy fixed` | Fixed-time smoke metrics ✅ |
 | M4 | `python -m src.reinforcement.environment --scenario medium --seed 42 --duration 120 --policy alternate` | Safe-transition smoke metrics ✅ |
-| M4 | `python -m src.reinforcement.train --config configs\rl.yaml` | RL model 📋 |
+| M4 | `python -m src.reinforcement.train --agent <registered_agent>` | RL model 📋 (register an agent first) |
 | M5 | `python -m src.hybrid.train --config configs\hybrid.yaml` | Hybrid model 📋 |
 | M6 | `python experiments\run_all.py --config configs\final.yaml` | Final results 📋 |
 
@@ -899,6 +917,6 @@ intervals and paired statistical tests.
 - [x] M3: dataset, feature sets, chronological splits, audit, and EDA.
 - [x] M4: fixed-time controller, safe RL environment and shared metrics.
 - [ ] M3: baseline/tuned SL models, evaluation, and error analysis.
-- [ ] M4: Q-Learning/DQN agents, evaluation, and state ablation.
+- [ ] M4: register agents, training/evaluation, and state ablation.
 - [ ] M5: frozen SL + retrained hybrid agent.
 - [ ] M6: fixed-time vs RL-only vs hybrid comparison and report.

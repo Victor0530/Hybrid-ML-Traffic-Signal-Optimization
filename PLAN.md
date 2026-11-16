@@ -2,21 +2,20 @@
 
 > **Project title:** An Intelligent Hybrid Supervised and Reinforcement
 > Learning-Based Adaptive Traffic Signal Optimisation System\
-> **Status:** Implementation in progress --- M1 and M2 complete; M3 dataset/EDA done; shared SL/RL contract ready for parallel model work\
-> **Last updated:** 2026-11-15\
+> **Status:** Implementation in progress --- M1 and M2 complete; M3 dataset/EDA done; shared SL/RL contract frozen; SL and RL train/evaluate harnesses runnable --- both lanes training in parallel\
 > **Primary language:** Python\
 > **Simulation environment:** Eclipse SUMO\
 > **Integration interface:** TraCI\
 > **Initial scope:** One four-way intersection
 
-## Implementation Status (14 November 2026)
+## Implementation Status
 
 | Milestone | Status | Evidence |
 |---|---|---|
 | M1 --- Environment works | ✅ Complete | Four-way SUMO network, fixed-time 90 s TLS, TraCI smoke test |
 | M2 --- Data collection works | ✅ Complete | 5 scenarios × 4 seeds = 20 runs, 57,600 rows, fixed-time baseline report |
-| M3 --- SL pipeline | 🚧 In progress | 38,400-row dataset, F0-F4 features, leakage-safe splits and EDA done; model training next |
-| M4 --- RL-only pipeline | 🚧 Contract ready | Shared SL/RL interfaces, safe environment, fixed-time controller and metrics frozen; agents next |
+| M3 --- SL pipeline | 🚧 In progress | 38,400-row dataset, F0-F4 features, leakage-safe splits, EDA and the train/evaluate harness done; model training next |
+| M4 --- RL-only pipeline | 🚧 In progress | Shared SL/RL interfaces, safe environment, fixed-time controller and metrics frozen; RL train/evaluate harness done, agents next |
 | M5 --- Hybrid SL + RL | 📋 Planned | Depends on M4 |
 | M6 --- Final experiments | 📋 Planned | Depends on M5 |
 
@@ -445,7 +444,7 @@ controller:
 
 This is exploratory analysis, not the final controller comparison.
 
-**Status (14 November 2026): complete.** The fixed-time baseline was run
+**Status:** complete. The fixed-time baseline was run
 for all five scenarios with seeds 42--45. Results, plots and the data-quality
 audit are in [`docs/fixed_time_baseline.md`](docs/fixed_time_baseline.md)
 and `results/fixed_time_baseline/`. Low, medium and high (700
@@ -1071,7 +1070,7 @@ models and evaluation work correctly.
 
 ## 12. Suggested Repository Structure
 
-**Actual state (14 November 2026):** M1 and M2 are implemented under
+**Actual state:** M1 and M2 are implemented under
 `sumo/network/`, `sumo/routes/`, `configs/`, `src/simulation/`,
 `src/analysis/`, `tests/` and `docs/`. See [`FILES.md`](FILES.md) for the
 authoritative file/folder map. The tree below is the target layout for
@@ -1212,7 +1211,7 @@ for the full pipeline so results are reproducible.
 -   [x] Verify valid signal phases and safe transitions.
 -   [x] Run a small traffic simulation.
 
-**Completed 13 November 2026.** The network sources, build script,
+**Completed.** The network sources, build script,
 generated network, fixed-time TLS program and TraCI smoke test are in
 `sumo/network/` and `src/simulation/check_connection.py`. Exact commands
 and expected output are in [`RUNBOOK.md`](RUNBOOK.md) §M1.
@@ -1232,7 +1231,7 @@ and vehicles move through the intersection. ✅
 -   [x] Characterise the fixed-time baseline and calibrate demand
     (§6.6).
 
-**Completed 13 November 2026.** Five scenarios × four seeds produced
+**Completed.** Five scenarios × four seeds produced
 20 runs and 57,600 observation rows with a 17-column schema. The run
 manifest records config, route and canonical network hashes, throughput
 totals and status. The fixed-time baseline is documented in
@@ -1258,7 +1257,7 @@ from SUMO runs. ✅
 -   [ ] Test cross-distribution robustness (§7.11).
 -   [ ] Report bootstrap confidence intervals (§7.10).
 
-**Progress (15 November 2026):** `src/preprocessing/build_dataset.py` produces
+**Progress:** `src/preprocessing/build_dataset.py` produces
 38,400 modelling rows (24,000 train / 9,600 validation / 4,800 test), F0–F4
 feature sets (7–41 columns) and a data-quality audit. The required EDA is
 implemented in `src/analysis/explore_sl_dataset.py` with a notebook wrapper,
@@ -1274,6 +1273,13 @@ preprocessing contract, prediction API, safe RL environment, fixed-time
 controller and common metrics are frozen in
 [`docs/contract_v1.md`](docs/contract_v1.md); model training and RL agents now
 proceed in parallel on top of that contract.
+
+**Progress:** The shared harness
+`src/supervised/train.py` / `src/supervised/evaluate.py` is implemented and
+smoke-verified: un-tuned fits, `--tune` GridSearchCV with a time-aware 300 s
+gap, per-model metric JSON, ranked `summary.csv` and `predictor.joblib`
+outputs all work (56 tests passing). Full candidate training, selection, the
+ensemble blend and error analysis remain open.
 
 **Acceptance check:** The best model can load and produce predictions
 from a new observation window without data leakage.
@@ -1294,13 +1300,23 @@ from a new observation window without data leakage.
 **Acceptance check:** An RL agent can interact with SUMO, select valid
 actions and produce logged evaluation metrics.
 
-**Progress (15 November 2026):** the contract is implemented in
+**Progress:** the contract is implemented in
 `src/reinforcement/environment.py`, `src/reinforcement/controllers.py` and
 `configs/rl.yaml`. The environment exposes safe green-phase actions, inserts
 yellow phases automatically, enforces minimum/maximum green, and can run the
 native fixed-time programme. Observation states S0/S1/S2 and the shared traffic
-metrics are frozen in [`docs/contract_v1.md`](docs/contract_v1.md); Q-Learning
-and DQN implementations are next.
+metrics are frozen in [`docs/contract_v1.md`](docs/contract_v1.md).
+
+**Progress:** the shared RL harness (`src/reinforcement/agents.py`,
+`train.py`, `evaluate.py`, per-agent hyperparameters in
+`configs/rl_agents.yaml`) is implemented and smoke-verified: real SUMO
+training runs log episode rewards and save checkpoints, and evaluation runs
+the fixed-time baseline or a learned checkpoint greedily over scenarios and
+seeds; 56 tests pass. No agent implementation ships with the project --- each
+lane registers its own via `register_agent`. Multi-seed training,
+hyperparameter tuning, the state-representation ablation and §8.8
+diagnostics remain open, so the training/evaluation checklist items stay
+unchecked.
 
 ### Milestone 5 --- Hybrid works
 
@@ -1561,7 +1577,7 @@ Additional risks introduced by the expanded experiment plan:
 
 ## 17. Expected Final Deliverables
 
-**Status (15 November 2026):** deliverables 1--4, 7 and 12 are available
+**Status:** deliverables 1--4, 7 and 12 are available
 (M1/M2 network, scripts, raw/processed data or regeneration instructions,
 M3 EDA script, notebook, figures and report, fixed-time controller, README).
 Deliverables 5--6 and 8--11, 13 remain for M3--M6.
@@ -1654,7 +1670,16 @@ traceable to the code and saved outputs.
 
 ## 19. Immediate Next Task
 
-M1 and M2 are complete. Start Milestone 3:
+> **Superseded:** this section is historical. M1 and M2
+> are complete, and M3 steps 1–4 (dataset, target, chronological splits,
+> EDA) plus the shared SL/RL contract (`docs/contract_v1.md`, tag
+> `contract-v1`) are done. Per the frozen contract, **SL and RL model work
+> now proceeds in parallel** — the old instruction at the end of this
+> section ("Do not start RL or hybrid training until the SL pipeline works
+> end-to-end") no longer applies. See the contract's parallel lanes
+> (A/B = SL, C/D = RL) and RUNBOOK M3/M4 for the live commands.
+
+Historical M3 kickoff note (steps 1–4 done, 5–6 pending):
 
 1.  Load the 20 observation CSVs from `data/raw/` and validate that every
     manifest row has `status == "ok"`.
@@ -1666,5 +1691,3 @@ M1 and M2 are complete. Start Milestone 3:
 5.  Run EDA and train baseline models (Linear Regression, Decision Tree,
     Random Forest), reporting MAE, RMSE and R².
 6.  Tune the best two candidates and freeze the best SL model for M5.
-
-Do not start RL or hybrid training until the SL pipeline works end-to-end.

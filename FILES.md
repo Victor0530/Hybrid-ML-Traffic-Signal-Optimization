@@ -14,7 +14,7 @@ runbook explains **how to run and reproduce it**.
 | 🚧 | Currently being built |
 | 📋 | Planned — not in the repository yet |
 
-**Last updated:** 2026-11-15, after building the Milestone 3 dataset, feature sets and chronological splits.
+**Last updated:** after adding the shared SL and RL train/evaluate harnesses.
 
 ---
 
@@ -52,8 +52,9 @@ Adaptive Traffic Signal Optimisation System/
 │
 ├── configs/
 │   ├── traffic_scenarios.yaml      # ✅ demand + simulation settings
-│   ├── sl.yaml                     # ✅ SL paths, splits and feature-set config
+│   ├── sl.yaml                     # ✅ SL paths, splits, feature sets, model grids
 │   ├── rl.yaml                     # ✅ frozen RL environment/action/reward config
+│   ├── rl_agents.yaml              # ✅ per-agent hyperparameters (per lane)
 │   ├── hybrid.yaml                 # 📋 planned hybrid configuration
 │   └── final.yaml                  # 📋 planned final-evaluation configuration
 │
@@ -89,13 +90,13 @@ Adaptive Traffic Signal Optimisation System/
 │   │   ├── __init__.py
 │   │   ├── features.py
 │   │   └── build_dataset.py
-│   ├── supervised/                 # 🚧 contract ready; model lanes next
-│   ├── reinforcement/              # 🚧 env/fixed-time ready; agents next
+│   ├── supervised/                 # ✅ frozen contract + train/evaluate harness
+│   ├── reinforcement/              # ✅ env/fixed-time + RL harness (agents per lane)
 │   ├── hybrid/                     # 📋 hybrid controller
 │   ├── evaluation/                 # 🚧 shared metrics ready; final statistics next
-│   └── utils/                      # 📋 shared helpers
+│   └── utils/                      # ✅ shared helpers (config loading, seeding)
 │
-├── models/                         # 📋 trained models (gitignored)
+├── models/                         # ✅ trained models (gitignored)
 ├── results/                        # ✅/📋 generated outputs (gitignored)
 ├── experiments/                    # ✅ end-to-end reproduction runner
 │   ├── __init__.py
@@ -244,8 +245,9 @@ implications are in [`docs/fixed_time_baseline.md`](docs/fixed_time_baseline.md)
 **Goal:** predict traffic volume five minutes ahead from current and past
 observations.
 
-The dataset, feature sets, splits and EDA are built. The shared SL interface is
-frozen; model training is next. Full methodology, row accounting, split
+The dataset, feature sets, splits and EDA are built, the shared SL interface is
+frozen, and the train/evaluate harness is runnable. Model selection, tuning
+and the ensemble blend are next. Full methodology, row accounting, split
 rationale, audit results and limitations are in
 [`docs/supervised_learning_dataset.md`](docs/supervised_learning_dataset.md).
 
@@ -253,13 +255,14 @@ rationale, audit results and limitations are in
 |---|---|---|---|
 | `src/preprocessing/` | ✅ | Load and audit the raw CSVs, validate timestamp continuity, build causal lag/rolling/cross-direction features, construct the 5-minute-ahead target, and assign chronological splits with an embargo. | `sl_dataset.csv`, split files, feature map, audit. |
 | `data/processed/` | ✅ generated | Processed dataset, chronological split files, feature map and audit. | Gitignored; rebuild with `build_dataset.py`. |
-| `src/supervised/` | 🚧 contract ready | Loads frozen splits, fits train-only preprocessing, registers model candidates and exposes the `[N, S, E, W]` prediction API. Model lanes add the fitted candidates next. | Metrics, predictions, feature importances. |
-| `configs/sl.yaml` | ✅ | Dataset paths, split boundaries, warm-up, feature-set default and output names. Simulation duration/horizon still come from `traffic_scenarios.yaml`. | Read by `build_dataset.py` and future training scripts. |
+| `src/supervised/` | ✅ contract + harness | Loads frozen splits, fits train-only preprocessing, registers model candidates and exposes the `[N, S, E, W]` prediction API. `train.py` fits/tunes candidates (optional `--tune` GridSearchCV with time-aware gap); `evaluate.py` scores a saved predictor on any split. | Metrics JSON/summary CSV, `predictor.joblib`. |
+| `src/utils/` | ✅ | Shared helpers: `load_yaml`/`deep_merge` config loading and `set_global_seed` reproducibility (used by both SL and RL lanes). | Imported by the harnesses. |
+| `configs/sl.yaml` | ✅ | Dataset paths, split boundaries, warm-up, feature-set default, output names and the `models:` block (per-candidate params + tuning grids). Simulation duration/horizon still come from `traffic_scenarios.yaml`. | Read by `build_dataset.py` and the training harness. |
 | `src/analysis/explore_sl_dataset.py` | ✅ | Descriptive EDA: target distributions, feature correlations, within-run autocorrelation, split shift and report figures. | `results/sl/eda/` tables and plots. |
-| `models/sl/` | 📋 | Trained model artifacts and fitted preprocessing pipelines. | `.joblib`/model files (gitignored). |
-| `results/sl/` | ✅/📋 | EDA tables/figures are complete; model metrics, residual plots and ablation results are next. | Figures and CSV/JSON metrics (gitignored). |
+| `models/sl/` | ✅ | Trained model artifacts (`<set>/<model>/predictor.joblib`). | `.joblib` files (gitignored). |
+| `results/sl/` | ✅/📋 | EDA and per-model metrics/summary are complete; residual plots, feature importance and ablation results are next. | Figures and CSV/JSON metrics (gitignored). |
 | `notebooks/01_eda.ipynb` | ✅ | Thin optional notebook wrapper around `explore_sl_dataset.py`; it does not duplicate the analysis. | Notebook, runnable when Jupyter is installed. |
-| `tests/` | ✅ | M2 tests plus M3 feature-construction, target-alignment, leakage, split-embargo, dataset-output, EDA-helper and shared-contract tests (46 tests total). | `pytest` results. |
+| `tests/` | ✅ | M2 tests plus M3 feature-construction, target-alignment, leakage, split-embargo, dataset-output, EDA-helper, shared-contract and shared-harness tests (56 tests total). | `pytest` results. |
 
 The M3 row counts, split boundaries, feature definitions, audit results and
 design rules are documented once in
@@ -276,16 +279,18 @@ This file is only a milestone-ordered map of paths, not a methodology duplicate.
 control.
 
 The environment, safe action rules, observation vectors, fixed-time controller
-and shared metrics are frozen in [`docs/contract_v1.md`](docs/contract_v1.md).
-Q-Learning and DQN agents are next.
+and shared metrics are frozen in [`docs/contract_v1.md`](docs/contract_v1.md),
+and the train/evaluate harness is runnable with an empty agent registry — each
+lane registers its own. Multi-seed runs, tuning and state ablation are next.
 
 | Path | Status | Purpose | Expected output |
 |---|---|---|---|
-| `src/reinforcement/` | 🚧 contract ready | TraCI environment with `reset`/`step`, automatic yellow transitions, min/max green enforcement and the fixed-time controller. Q-Learning/DQN modules are added next. | Environment API, training and evaluation code. |
-| `configs/rl.yaml` | ✅ | Decision interval, green limits, action mapping, reward weights, training hyperparameters and evaluation seeds. | Read by RL training/evaluation. |
+| `src/reinforcement/` | ✅ contract + harness | TraCI environment with `reset`/`step`, automatic yellow transitions, min/max green enforcement and the fixed-time controller. `agents.py` is an **empty registry** — each lane registers its own agent module — plus `train.py`/`evaluate.py` harnesses. | Checkpoints, training logs, evaluation metrics. |
+| `configs/rl.yaml` | ✅ | Frozen: decision interval, green limits, action mapping, reward weights, training hyperparameters and evaluation seeds. | Read by RL training/evaluation. |
+| `configs/rl_agents.yaml` | ✅ | Per-agent hyperparameters with documented precedence over `rl.yaml` training defaults. Ships with only the shared `training` block; each lane adds its own. | Read by the RL harness. |
 | `src/evaluation/metrics.py` | ✅ | Shared regression and traffic metrics for SL, RL and final comparisons. | Metric dictionaries and tables. |
-| `models/rl/` | 📋 | Checkpoints and final RL models. | Model files (gitignored). |
-| `results/rl/` | 📋 | Learning curves, per-episode rewards, waiting/queue metrics, and ablation results. | Figures and metric tables (gitignored). |
+| `models/rl/` | ✅ | Checkpoints per agent/scenario/seed (`checkpoint.npz` / `checkpoint.pt`). | Model files (gitignored). |
+| `results/rl/` | ✅/📋 | Per-episode training logs and evaluation CSV/JSON are generated; learning-curve plots and ablation results are next. | Figures and metric tables (gitignored). |
 
 ### M4 design rules to preserve
 
@@ -361,7 +366,7 @@ spread, not just a single run.
 | `src/analysis/` | ✅ | M2 baseline and M3 EDA code. `characterise_baseline.py` writes `results/fixed_time_baseline/`; `explore_sl_dataset.py` writes `results/sl/eda/`. |
 | `experiments/reproduce.py` | ✅ | Idempotent M1-M3 orchestrator: environment checks, routes, collection, baseline, dataset, EDA and tests. |
 | `src/evaluation/` | ✅/📋 | `metrics.py` provides the frozen regression and traffic metric definitions shared by SL, RL and final comparisons; bootstrap and paired-test helpers are added in M6. |
-| `tests/` | ✅ | 46 automated tests covering route generation, schema validation, hashing, dataset construction, leakage, splits, EDA, shared metrics, the SL contract and the RL contract. |
+| `tests/` | ✅ | 61 automated tests covering route generation, schema validation, hashing, dataset construction, leakage, splits, EDA, shared metrics, the SL contract, the RL contract and the shared train/evaluate harnesses. |
 | `src/utils/` | 📋 | Shared helpers such as seeding, logging, and config loading. |
 
 ---

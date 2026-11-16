@@ -1,0 +1,26 @@
+# Per-agent RL hyper-parameters (contract lane C/D).
+#
+# configs/rl.yaml is FROZEN by contract-v1 and keeps the environment, action,
+# reward, shared training and evaluation settings. This file only carries
+# per-agent overrides, so agent tuning never touches a frozen file.
+#
+# Precedence (later wins):
+#   rl.yaml training block -> rl.yaml training block here -> <agent> block -> CLI
+#
+# Usage:
+#   python -m src.reinforcement.train --agent <registered_agent> --scenario medium
+#
+# No agent ships with the project. Add a top-level block named after your
+# registered agent (see src/reinforcement/agents.py) and put its
+# hyper-parameters there; the harness merges this file over configs/rl.yaml.
+
+training:
+  # Optional shared overrides for every agent (empty by default).
+  save_every: 0
+
+# Example of the block each lane adds for its own agent:
+#
+# my_agent:
+#   state: S0
+#   gamma: 0.95
+#   learning_rate: 0.001

@@ -1,6 +1,6 @@
 # Supervised-Learning Dataset and Feature Engineering
 
-Status: dataset and EDA complete, 15 November 2026. Model training is the next
+Status: dataset and EDA complete. Model training is the next
 step.
 
 > **Single source of truth.** This report owns the M3 dataset methodology, row

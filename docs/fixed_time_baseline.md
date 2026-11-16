@@ -1,6 +1,6 @@
 # Fixed-Time Baseline Characterisation
 
-Status: complete, 13 November 2026
+Status: complete
 
 This report characterises the fixed-time signal controller before any RL or
 hybrid controller is trained. It is the M2 input to the RL state, reward, and

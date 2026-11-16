@@ -1,6 +1,6 @@
 # Shared SL/RL contract v1
 
-> **Status:** implemented and frozen for parallel development, 15 November 2026.
+> **Status:** implemented and frozen for parallel development.
 > Git tag: `contract-v1`.
 >
 > **Purpose:** give every supervised-learning (SL) and reinforcement-learning
@@ -340,8 +340,40 @@ Freeze checklist:
 - [x] Shared regression and traffic metrics tested.
 - [x] `configs/rl.yaml` committed.
 - [x] Full test suite passes.
-- [ ] Commit and tag `contract-v1`.
-- [ ] Push branch and tag to `origin`.
+- [x] Commit and tag `contract-v1`.
+- [x] Push branch and tag to `origin`.
 
 After the tag, work proceeds in parallel and this document is the reference for
 all shared behavior.
+
+## 7. Addendum: post-freeze additions
+
+No frozen module (Section 1) or frozen config (`configs/rl.yaml`) was edited
+after the `contract-v1` tag. The following files were added on top of the
+frozen contract so the SL and RL lanes can train in parallel:
+
+| Addition | Purpose |
+| --- | --- |
+| `src/utils/config.py`, `src/utils/reproducibility.py`, `src/utils/__init__.py` | Shared `load_yaml`/`deep_merge` config loading and `set_global_seed` reproducibility helpers. |
+| `src/supervised/train.py`, `src/supervised/evaluate.py` | Shared SL harness: fit/tune registered candidates (`--tune` uses `TimeSeriesSplit` with a 300 s gap), write metric JSON/`summary.csv`, save/load predictors, evaluate a split. |
+| `src/reinforcement/agents.py` | Agent registry (`register_agent`, `make_agent`, `available_agents`). Ships **empty**: each lane registers its own agent module. |
+| `src/reinforcement/train.py`, `src/reinforcement/evaluate.py` | Shared RL harness: train a registered agent with episode logging + checkpoints, evaluate fixed-time or a learned checkpoint across scenarios/seeds. |
+| `configs/rl_agents.yaml` | Per-agent hyperparameters; merged over `configs/rl.yaml` training defaults (rl.yaml stays frozen). Ships with only the shared `training` block. |
+| `configs/sl.yaml` `models:` block | Per-candidate params/grids for the SL harness (sl.yaml was never frozen). |
+| `tests/test_shared_harnesses.py` | Tests covering the helpers, both harnesses and the agent registry (suite now 56 tests). |
+
+**Post-freeze fix to a frozen module:** `PersistenceRegressor` in
+`src/supervised/baselines.py` did not inherit from `sklearn.base.BaseEstimator`,
+so under scikit-learn 1.9 `Pipeline.predict(...)` raised
+`AttributeError: ... has no attribute '__sklearn_tags__'` when the persistence
+baseline was the final estimator. The fix (approved before any commit or
+teammate branch existed) makes the estimator satisfy the scikit-learn protocol:
+
+1. inherit `RegressorMixin, BaseEstimator`;
+2. rename the fitted attribute `_column_index` → `column_index_`, because
+   `check_is_fitted` only recognises trailing-underscore names;
+3. add a regression test that predicts through a fitted pipeline.
+
+The temporary `predict_pipeline` workaround was removed; harness code now calls
+`pipeline.predict(X)` directly. Because the edit landed before any lane
+branched from `contract-v1`, no re-tag or version bump was needed.

@@ -25,15 +25,17 @@ PyYAML==6.0.3
 # Testing
 pytest==9.1.1
 
+# Deep RL agents: DQN / Double DQN (PLAN.md section 8.5)
+torch==2.15.0
+
 # ---------------------------------------------------------------------------
 # Optional extras - install only when the related milestone is reached.
 # Uncomment or install directly with: pip install <package>
 # ---------------------------------------------------------------------------
-# SL candidate model (PLAN.md section 7.2)
+# SL candidate model (PLAN.md section 7.2) - optional; the registered
+# boosted candidate is scikit-learn HistGradientBoostingRegressor, which is
+# already covered by scikit-learn above. XGBoost stays optional.
 # xgboost
-#
-# Deep RL agents: DQN / PPO (PLAN.md section 8.5)
-# torch
 #
 # Gymnasium environment wrapper (PLAN.md section 8.1)
 # gymnasium

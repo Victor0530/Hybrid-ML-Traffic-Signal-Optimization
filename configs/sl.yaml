@@ -37,3 +37,36 @@ output:
   dataset: sl_dataset.csv
   feature_map: feature_columns.json
   audit: data_audit.json
+
+models:
+  # Per-candidate settings consumed by `python -m src.supervised.train`.
+  # `params` are merged over the registry defaults; `grid` (optional) is the
+  # --tune search space, searched with TimeSeriesSplit(gap=240 rows = 300 s).
+  ridge:
+    params:
+      alpha: 1.0
+  decision_tree:
+    params:
+      max_depth: 12
+      min_samples_leaf: 5
+    grid:
+      max_depth: [6, 12, 18, null]
+      min_samples_leaf: [1, 5, 20]
+  random_forest:
+    params:
+      n_estimators: 300
+      max_depth: 16
+      min_samples_leaf: 2
+    grid:
+      n_estimators: [200, 300]
+      max_depth: [12, 16, null]
+      min_samples_leaf: [1, 2, 4]
+  hist_gradient_boosting:
+    params:
+      max_iter: 300
+      learning_rate: 0.08
+    grid:
+      max_iter: [200, 300]
+      learning_rate: [0.05, 0.08, 0.12]
+  persistence:
+    params: {}

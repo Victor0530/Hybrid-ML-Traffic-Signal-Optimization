@@ -1,6 +1,6 @@
 # Exploratory Data Analysis — Supervised-Learning Dataset
 
-**Status:** complete for the M3 dataset (15 November 2026). This report covers the
+**Status:** complete for the M3 dataset. This report covers the
 required EDA deliverable; model training and tuning are the next M3 step.
 
 **Scope.** This is a descriptive analysis of the processed long-format dataset.
