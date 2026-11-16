@@ -83,10 +83,10 @@ git checkout -b lane-a          # or lane-b, lane-c, lane-d
 
 | Lane | You own | Files you touch | First command |
 |---|---|---|---|
-| A | SL: `ridge`, `decision_tree` | only your `models.ridge` / `models.decision_tree` blocks in `configs/sl.yaml` | `python -m src.supervised.train --models ridge decision_tree` |
-| B | SL: `random_forest`, `hist_gradient_boosting`, `xgboost` | only your three `models.*` blocks in `configs/sl.yaml` | `python -m src.supervised.train --models random_forest hist_gradient_boosting xgboost` |
-| C | RL: Q-Learning + DQN | create `src/reinforcement/q_learning.py` and `src/reinforcement/dqn.py`, add your registration lines to `src/reinforcement/agents.py`, your `<agent>` blocks in `configs/rl_agents.yaml` | `python -m src.reinforcement.train --agent q_learning --scenario medium --episodes 2` (smoke) |
-| D | Double DQN, baselines, review (owner) | your agent module + registration line, `configs/rl_agents.yaml` | `python -m src.reinforcement.evaluate --agent fixed` (baseline) |
+| A | SL: `ridge`; RL: Q-Learning | your `models.ridge` block in `configs/sl.yaml`; new `src/reinforcement/q_learning.py` + registration line in `src/reinforcement/agents.py`; your `q_learning:` block in `configs/rl_agents.yaml` | `python -m src.supervised.train --models ridge`, then smoke `python -m src.reinforcement.train --agent q_learning --scenario medium --episodes 2` |
+| B | SL: `decision_tree`, `random_forest` | only your `models.decision_tree` / `models.random_forest` blocks in `configs/sl.yaml` | `python -m src.supervised.train --models decision_tree random_forest` |
+| C | SL: `hist_gradient_boosting`, `xgboost` | only your `models.hist_gradient_boosting` / `models.xgboost` blocks in `configs/sl.yaml` | `python -m src.supervised.train --models hist_gradient_boosting xgboost` |
+| D | RL: DQN, Double DQN; baselines, review (owner) | new `src/reinforcement/dqn.py` + registration line in `src/reinforcement/agents.py`; your `dqn:` block in `configs/rl_agents.yaml`; baseline/review outputs | `python -m src.reinforcement.evaluate --agent fixed` (baseline) |
 
 Hand back per lane: **one seeded command** that reproduces your validation
 metrics, the **metrics JSON**, and short **notes** (assumptions, deviations).

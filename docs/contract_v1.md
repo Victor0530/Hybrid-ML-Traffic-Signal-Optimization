@@ -286,10 +286,10 @@ of `docs/reproduce.md`):
 
 | Lane | Owner | Scope | Deliverables |
 |---|---|---|---|
-| A | SL teammate | Candidates `ridge` and `decision_tree` | seeded training command, validation metrics JSON, notes; config edits confined to your `models.*` blocks |
-| B | SL teammate | Candidates `random_forest`, `hist_gradient_boosting`, `xgboost` | same |
-| C | RL teammate | Q-Learning and DQN agents | agent module(s), registration lines in `agents.py`, your `<agent>` blocks in `configs/rl_agents.yaml`, seeded training/evaluation command, validation metrics JSON, notes |
-| D | Project owner | Double DQN, fixed-time/actuated baseline evaluation, review and integration | baseline results, review notes, integration |
+| A | SL + RL teammate | SL candidate `ridge`; RL agent Q-Learning | seeded SL training command + validation metrics JSON + notes (config edits confined to `models.ridge`); Q-Learning module, registration line in `agents.py`, `q_learning:` block in `configs/rl_agents.yaml`, seeded training/evaluation command + metrics JSON |
+| B | SL teammate | Candidates `decision_tree` and `random_forest` | seeded training command, validation metrics JSON, notes; config edits confined to your `models.*` blocks |
+| C | SL teammate | Candidates `hist_gradient_boosting` and `xgboost` | same |
+| D | Project owner | RL agents DQN and Double DQN; fixed-time/actuated baseline evaluation, review and integration | DQN/Double DQN modules + registration lines + `configs/rl_agents.yaml` blocks, baseline results, review notes, integration |
 
 Rules for every lane:
 

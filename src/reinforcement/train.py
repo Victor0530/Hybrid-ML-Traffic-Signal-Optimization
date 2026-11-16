@@ -1,4 +1,4 @@
-"""Reinforcement-learning training entry point (contract lane C).
+"""Reinforcement-learning training entry point (lanes A and D).
 
 Trains one registered agent on the frozen traffic environment, logs one row
 of episode metrics per episode and writes a checkpoint that

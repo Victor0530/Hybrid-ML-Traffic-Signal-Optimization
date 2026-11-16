@@ -1,4 +1,4 @@
-# Per-agent RL hyper-parameters (contract lane C/D).
+# Per-agent RL hyper-parameters (lanes A and D).
 #
 # configs/rl.yaml is FROZEN by contract-v1 and keeps the environment, action,
 # reward, shared training and evaluation settings. This file only carries

@@ -17,7 +17,7 @@ def set_global_seed(seed: int) -> int:
     """Seed Python, NumPy and (when installed) torch RNGs.
 
     Returns the seed so callers can record it in metrics artefacts. torch is
-    optional: the SL lane and Q-Learning must work without it.
+    optional: SL models and Q-Learning must work without it.
     """
     seed = int(seed)
     if seed < 0:
