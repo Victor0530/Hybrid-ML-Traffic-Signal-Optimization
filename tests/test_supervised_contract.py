@@ -10,6 +10,7 @@ import pytest
 from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.tree import DecisionTreeRegressor
+from xgboost import XGBRegressor
 
 from src.preprocessing.features import DIRECTIONS
 from src.supervised.data import load_splits
@@ -65,12 +66,13 @@ def test_preprocessor_is_fitted_on_training_rows_only() -> None:
     assert np.isfinite(transformed).all()
 
 
-def test_registry_builds_the_four_candidates() -> None:
+def test_registry_builds_the_five_candidates() -> None:
     assert set(available_models()) == {
         "decision_tree",
         "hist_gradient_boosting",
         "random_forest",
         "ridge",
+        "xgboost",
     }
     assert isinstance(build_model("ridge"), Ridge)
     assert isinstance(build_model("decision_tree"), DecisionTreeRegressor)
@@ -78,6 +80,7 @@ def test_registry_builds_the_four_candidates() -> None:
     assert isinstance(
         build_model("hist_gradient_boosting"), HistGradientBoostingRegressor
     )
+    assert isinstance(build_model("xgboost"), XGBRegressor)
     assert build_model("ridge", {"alpha": 5.0}).alpha == 5.0
     with pytest.raises(KeyError):
         build_model("not_a_model")

@@ -125,6 +125,35 @@ def run_module(module: str, description: str, *arguments: str) -> None:
     )
 
 
+def print_next_steps() -> None:
+    """Tell teammates where to go next and confirm which commit they are on."""
+    print('\nNext for teammates: docs/reproduce.md -> "Your assigned task".')
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=PROJECT_ROOT,
+            timeout=10,
+            check=False,
+        )
+        if head.returncode == 0:
+            describe = subprocess.run(
+                ["git", "describe", "--tags", "--always"],
+                capture_output=True,
+                text=True,
+                cwd=PROJECT_ROOT,
+                timeout=10,
+                check=False,
+            )
+            suffix = ""
+            if describe.returncode == 0 and describe.stdout.strip():
+                suffix = f" ({describe.stdout.strip()})"
+            print(f"Git state: {head.stdout.strip()}{suffix}")
+    except (OSError, subprocess.SubprocessError):
+        pass  # No git available; the pipeline itself is unaffected.
+
+
 def main() -> int:
     args = parse_args()
     started = time.perf_counter()
@@ -155,6 +184,7 @@ def main() -> int:
     check_sumo(required=not args.skip_collection)
     if args.check_only:
         print("\nEnvironment check passed.")
+        print_next_steps()
         return 0
 
     if not args.skip_routes:
@@ -211,6 +241,7 @@ def main() -> int:
         "Outputs: data/raw/, results/fixed_time_baseline/, data/processed/, "
         "results/sl/eda/."
     )
+    print_next_steps()
     return 0
 
 

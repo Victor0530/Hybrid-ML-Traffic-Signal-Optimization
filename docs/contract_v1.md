@@ -85,7 +85,7 @@ imputation or scaling, so every model lane must use this train-only pipeline.
 from src.supervised import build_model, available_models, register_model
 
 print(available_models())
-# ('ridge', 'decision_tree', 'random_forest', 'hist_gradient_boosting')
+# ('decision_tree', 'hist_gradient_boosting', 'random_forest', 'ridge', 'xgboost')
 
 model = build_model("ridge")
 ```
@@ -98,6 +98,7 @@ Registered first-pass candidates:
 | `decision_tree` | `DecisionTreeRegressor` | `random_state=42` |
 | `random_forest` | `RandomForestRegressor` | 100 trees, `random_state=42` |
 | `hist_gradient_boosting` | `HistGradientBoostingRegressor` | `random_state=42` |
+| `xgboost` | `XGBRegressor` | `random_state=42`, `n_jobs=-1`; fifth candidate added post-freeze (§7) |
 | `persistence` | `PersistenceRegressor` | Baseline only; not an ML candidate |
 
 Add a model without editing the registry module:
@@ -279,19 +280,25 @@ fixed-time, RL-only and hybrid comparisons.
 
 ## 5. Parallel work lanes
 
-The contract is tagged only after the checks in §6 pass. From that point:
+The contract is tagged only after the checks in §6 pass. From that point,
+lanes branch from `main` (exact commands in the "Your assigned task" section
+of `docs/reproduce.md`):
 
 | Lane | Owner | Scope | Deliverables |
 |---|---|---|---|
-| A | SL teammate | Ridge and Decision Tree modules | model module, registry entry, config block, seeded reproduce command, validation metrics JSON, notes |
-| B | SL teammate | Random Forest and HistGradientBoosting modules | same |
-| C | RL teammate | Q-Learning and DQN agents | agent module, config block, seeded training/evaluation command, validation metrics JSON, notes |
+| A | SL teammate | Candidates `ridge` and `decision_tree` | seeded training command, validation metrics JSON, notes; config edits confined to your `models.*` blocks |
+| B | SL teammate | Candidates `random_forest`, `hist_gradient_boosting`, `xgboost` | same |
+| C | RL teammate | Q-Learning and DQN agents | agent module(s), registration lines in `agents.py`, your `<agent>` blocks in `configs/rl_agents.yaml`, seeded training/evaluation command, validation metrics JSON, notes |
 | D | Project owner | Double DQN, fixed-time/actuated baseline evaluation, review and integration | baseline results, review notes, integration |
 
 Rules for every lane:
 
-- Do not edit shared contract files; add new modules through the registry or
-  agent interface.
+- Do not edit shared contract files; add new model or agent modules through
+  the registry or agent interface.
+- The five SL candidates are already registered and wired into the shared
+  train harness: you may edit only **your own** `models.<name>` blocks in
+  `configs/sl.yaml` (never frozen). RL ships no agent — create your module
+  and register it as `src/reinforcement/agents.py` documents.
 - Do not tune or run the final test evaluation in the parallel phase.
 - Do not commit generated data, models or results.
 - Provide one seeded command that reproduces the reported validation metrics.
@@ -308,7 +315,8 @@ Run the full suite:
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-Expected: **46 passed** (14 M1/M2, 9 dataset, 6 EDA, 17 contract tests).
+Expected: **56 passed** (14 M1/M2, 9 dataset, 6 EDA, 17 contract, 10
+shared-harness tests).
 
 Run the environment smoke tests from the repository root:
 
@@ -333,7 +341,8 @@ Freeze checklist:
 
 - [x] Dataset/split loader and feature ordering verified on the canonical data.
 - [x] Train-only preprocessing pipeline tested.
-- [x] Four SL candidates plus persistence baseline registered.
+- [x] Four SL candidates plus persistence baseline registered (a fifth,
+  `xgboost`, was added post-freeze — see §7).
 - [x] Prediction API returns `[N, S, E, W]` and saves/loads.
 - [x] RL environment resets, steps and handles safe transitions.
 - [x] Fixed-time controller matches the 90 s native plan.
@@ -377,3 +386,45 @@ teammate branch existed) makes the estimator satisfy the scikit-learn protocol:
 The temporary `predict_pipeline` workaround was removed; harness code now calls
 `pipeline.predict(X)` directly. Because the edit landed before any lane
 branched from `contract-v1`, no re-tag or version bump was needed.
+
+**Post-freeze addition (owner-approved):** `xgboost` was registered as a fifth
+SL candidate — an `XGBRegressor` factory in `src/supervised/registry.py`, a
+`models.xgboost` block in `configs/sl.yaml` and `xgboost==3.2.0` in
+`requirements.txt`. No existing model or harness behaviour changed;
+`available_models()` simply returns one more name.
+
+---
+
+## 8. Model selection rationale
+
+None of the models below are trained in this repository yet — each lane fits
+its own candidates and reports validation metrics. This section records why
+each one was chosen and what it was preferred over.
+
+### 8.1 SL candidates (five, plus the persistence baseline)
+
+| Model | Why it is in the lineup | Preferred over |
+|---|---|---|
+| `persistence` | Naive floor: predict the current count. Shows immediately whether ML beats "no change". | Not an ML candidate; it can only win by being unbeatable. |
+| `ridge` | Interpretable linear baseline with standardised coefficients; the lag features are strongly collinear (see the EDA report), so L2 shrinkage stabilises plain least squares. | OLS (unstable coefficients on collinear lags), KNN/SVR (poor extrapolation, slow at predict time), ARIMA/SARIMA (wrong structure for cross-sectional features). |
+| `decision_tree` | Nonlinear thresholds and a single-tree picture that is easy to explain in the report. | Alone it is high-variance — which is why it is compared against the ensembles rather than used as the final model. |
+| `random_forest` | Strong out-of-the-box ensemble with almost no tuning; impurity and permutation importances for the analysis section. | A single tree (variance) and boosting as the only option (all eggs in one basket). |
+| `hist_gradient_boosting` | Histogram-based gradient boosting native to scikit-learn: no extra dependency, native NaN handling, fast on this dataset. | XGBoost/LightGBM as libraries — same algorithm family, extra dependency. |
+| `xgboost` | Fifth candidate: the well-known GBDT reference with more tuning knobs (depth, rounds, learning rate); a cross-library check against the sklearn-native booster. | Added deliberately as a rival to `hist_gradient_boosting`; if the two only tie, that is a reportable ablation result. |
+
+Rejected for scope: KNN, SVR, ARIMA/SARIMA and deep sequence models — wrong
+inductive bias or overkill for 38,400 rows × 41 features. PLAN §7.2 lists
+XGBoost as optional; it is included here as the fifth candidate.
+
+### 8.2 RL candidates (three)
+
+| Model | Why it is in the lineup | Preferred over |
+|---|---|---|
+| Q-Learning | Simplest RL baseline with a discretised state and an interpretable Q-table; establishes the floor. | Nothing — it is the floor every other agent must beat. |
+| DQN | Handles the full numeric state (S0/S1) with a nonlinear value function. | Linear function approximators (too weak), a Q-table on a continuous state (needs coarse hand-made bins). |
+| Double DQN | Target decoupling — `a* = argmax_a Q_online(s', a)`, `y = r + γ·Q_target(s', a*)` — reduces max-operator overestimation; a one-line change over DQN with no new hyperparameters. | Not guaranteed to win; it is the algorithmic-improvement comparison the plan requires. |
+
+Rejected: PPO (on-policy and sample-inefficient against expensive hour-long
+SUMO episodes, high tuning risk — PLAN lists it optional only) and any fourth
+algorithm (padding the table). Fixed-time and actuated controllers are
+baselines, not RL candidates.

@@ -13,6 +13,7 @@ from typing import Any, Callable
 from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.tree import DecisionTreeRegressor
+from xgboost import XGBRegressor
 
 from src.supervised.baselines import PersistenceRegressor
 
@@ -108,6 +109,11 @@ _CANDIDATES.update(
             name="hist_gradient_boosting",
             factory=HistGradientBoostingRegressor,
             default_params={"random_state": 42},
+        ),
+        "xgboost": ModelSpec(
+            name="xgboost",
+            factory=XGBRegressor,
+            default_params={"random_state": 42, "n_jobs": -1},
         ),
     }
 )

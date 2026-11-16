@@ -5,10 +5,11 @@ short. `RUNBOOK.md`, `FILES.md` and the milestone reports are reference material
 not required reading before you start.
 
 The current pipeline covers **M1 (network) + M2 (fixed-time baseline and raw
-data) + M3 (dataset and EDA)**. The shared SL/RL contract is included in the
-test suite; see [`contract_v1.md`](contract_v1.md) before writing model code.
-The M3 supervised models, M4 RL agents and M5 hybrid are added later; this
-quickstart will be updated as each milestone lands.
+data) + M3 (dataset and EDA) plus the shared SL/RL contract and the
+train/evaluate harnesses**. The SL models and RL agents themselves are not
+trained in this repository yet — that is the parallel team work described in
+section 3. See [`contract_v1.md`](contract_v1.md) for the frozen interfaces
+and the model-selection rationale.
 
 ---
 
@@ -54,7 +55,7 @@ A clean run finishes with something close to:
 ```text
 Rows: 38,400 | runs: 20 | missing cells: 0
 ...
-46 passed
+56 passed
 Done in ...
 ```
 
@@ -64,7 +65,41 @@ minute.
 
 ---
 
-## 3. Useful variants
+## 3. Your assigned task (teammates)
+
+Sections 1–2 bring your machine to the current state of the repository:
+everything regenerated from scratch and the full test suite green. Your own
+work starts here.
+
+Branch from `main` — it contains the frozen `contract-v1` interfaces **plus**
+the train/evaluate harnesses added afterwards:
+
+```powershell
+git fetch --tags
+git checkout main
+git pull
+git checkout -b lane-a          # or lane-b, lane-c, lane-d
+```
+
+| Lane | You own | Files you touch | First command |
+|---|---|---|---|
+| A | SL: `ridge`, `decision_tree` | only your `models.ridge` / `models.decision_tree` blocks in `configs/sl.yaml` | `python -m src.supervised.train --models ridge decision_tree` |
+| B | SL: `random_forest`, `hist_gradient_boosting`, `xgboost` | only your three `models.*` blocks in `configs/sl.yaml` | `python -m src.supervised.train --models random_forest hist_gradient_boosting xgboost` |
+| C | RL: Q-Learning + DQN | create `src/reinforcement/q_learning.py` and `src/reinforcement/dqn.py`, add your registration lines to `src/reinforcement/agents.py`, your `<agent>` blocks in `configs/rl_agents.yaml` | `python -m src.reinforcement.train --agent q_learning --scenario medium --episodes 2` (smoke) |
+| D | Double DQN, baselines, review (owner) | your agent module + registration line, `configs/rl_agents.yaml` | `python -m src.reinforcement.evaluate --agent fixed` (baseline) |
+
+Hand back per lane: **one seeded command** that reproduces your validation
+metrics, the **metrics JSON**, and short **notes** (assumptions, deviations).
+Run `python -m pytest -q` before you hand anything back.
+
+Full rules — do not edit shared contract files, no tuning, no test-set use,
+no committed data or checkpoints — and the deliverable list are in
+[`contract_v1.md`](contract_v1.md) §5. Why these models were chosen, and what
+they were preferred over, is in [`contract_v1.md`](contract_v1.md) §8.
+
+---
+
+## 4. Useful variants
 
 ```powershell
 # Check the environment only (no simulation, no writes)
@@ -90,7 +125,7 @@ the run.
 
 ---
 
-## 4. Where the outputs go
+## 5. Where the outputs go
 
 | Output | Location | Tracked in Git? |
 |---|---|---|
@@ -106,7 +141,7 @@ raw data, generated routes, model checkpoints or results.
 
 ---
 
-## 5. If something fails
+## 6. If something fails
 
 | Symptom | Fix |
 |---|---|
@@ -119,7 +154,7 @@ raw data, generated routes, model checkpoints or results.
 
 ---
 
-## 6. Manual commands (if you prefer step by step)
+## 7. Manual commands (if you prefer step by step)
 
 ```powershell
 python -m src.simulation.scenario_generator --all
@@ -136,7 +171,7 @@ them so hashes and manifests stay consistent.
 
 ---
 
-## 7. Where to read more
+## 8. Where to read more
 
 - Exact Windows setup, commands and troubleshooting:
   [`../RUNBOOK.md`](../RUNBOOK.md)

@@ -68,5 +68,14 @@ models:
     grid:
       max_iter: [200, 300]
       learning_rate: [0.05, 0.08, 0.12]
+  xgboost:
+    params:
+      n_estimators: 300
+      learning_rate: 0.05
+      max_depth: 6
+    grid:
+      n_estimators: [200, 300]
+      learning_rate: [0.05, 0.1]
+      max_depth: [4, 6]
   persistence:
     params: {}

@@ -502,7 +502,7 @@ Expected:
 
 ```text
 .............................                                            [100%]
-46 passed
+56 passed
 ```
 
 The M2 subset covers byte-identical route generation, calibrated scenario values,
@@ -510,7 +510,8 @@ collector CSV-schema validation, configuration hashing, stable network hashing
 that ignores netconvert's timestamp, SUMO binary resolution error handling, and
 baseline provenance validation against the exact canonical 20-run set. M3 adds
 the dataset/leakage tests and EDA helper tests; the contract adds shared-metric,
-SL-registry and RL-environment tests.
+SL-registry and RL-environment tests; the harnesses add training, evaluation
+and agent-registry tests.
 
 ---
 
@@ -877,10 +878,10 @@ intervals and paired statistical tests.
 | M2 | `python -m src.simulation.data_collector --seed 42 --seed 43 --seed 44 --seed 45` | 20 CSVs + manifest |
 | M2 | Add `--overwrite` | Regenerate existing runs |
 | M2 | `python -m src.analysis.characterise_baseline` | Baseline CSVs + plots + report |
-| M2 | `python -m pytest -q` | 46 passed |
+| M2 | `python -m pytest -q` | 56 passed |
 | M3 | `python -m src.preprocessing.build_dataset` | Dataset + splits + audit ✅ |
 | M3 | `python -m src.analysis.explore_sl_dataset` | EDA tables + figures ✅ |
-| M3 | `python -m src.supervised.train --config configs\sl.yaml` | SL models ✅ |
+| M3 | `python -m src.supervised.train --config configs\sl.yaml` | SL training harness ✅ |
 | M4 | `python -m src.reinforcement.environment --scenario medium --seed 42 --duration 120 --policy fixed` | Fixed-time smoke metrics ✅ |
 | M4 | `python -m src.reinforcement.environment --scenario medium --seed 42 --duration 120 --policy alternate` | Safe-transition smoke metrics ✅ |
 | M4 | `python -m src.reinforcement.train --agent <registered_agent>` | RL model 📋 (register an agent first) |
@@ -909,7 +910,7 @@ intervals and paired statistical tests.
 - [x] High demand calibrated to 700/approach and confirmed stable.
 - [x] Changing scenario includes a recovery phase (400 → 800 → 400).
 - [x] Baseline characterisation and `docs/fixed_time_baseline.md` completed.
-- [x] Automated M2 tests pass (14 M2 tests; 46 total with M3 and contract).
+- [x] Automated M2 tests pass (14 M2 tests; 56 total with M3, contract and harness).
 - [x] Reproducibility verified with fixed seeds.
 
 ### M3–M6 🚧
