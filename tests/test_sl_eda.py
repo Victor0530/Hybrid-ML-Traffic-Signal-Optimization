@@ -101,6 +101,20 @@ def test_autocorrelation_never_crosses_run_boundaries() -> None:
     assert -1.0 <= all_row["autocorrelation"] <= 1.0
 
 
+def test_autocorrelation_pairs_require_exact_time_spacing() -> None:
+    """EDA-1: row-offset pairs across an embargo gap must be dropped."""
+    data = synthetic_frame()
+    data = data[data["simulation_time"] != 5]
+
+    table = autocorrelation_table(data, lags=(1,))
+    all_row = table.loc[table["scope"] == "all"].iloc[0]
+
+    # Per group the remaining times are 0, 10, 15, 20; only (10, 15) and
+    # (15, 20) are exactly 5 s apart. A row-offset shift would also pair
+    # (0, 10) across the 10 s gap.
+    assert int(all_row["pairs"]) == 16  # 2 runs x 4 directions x 2 pairs
+
+
 def test_build_overview_reports_clean_dataset_facts() -> None:
     data = synthetic_frame()
     feature_map = {

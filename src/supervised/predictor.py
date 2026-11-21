@@ -50,7 +50,8 @@ class Predictor:
                     "Prediction array must have shape "
                     f"(n_rows, {len(self.feature_names)})"
                 )
-            values = array
+            # Wrap so sklearn sees valid feature names (no UserWarning).
+            values = pd.DataFrame(array, columns=self.feature_names)
         return np.asarray(self.pipeline.predict(values), dtype=float)
 
     def predict(self, window: pd.DataFrame) -> dict[str, float]:

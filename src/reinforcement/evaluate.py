@@ -80,7 +80,8 @@ def _mean_std(values: list[float]) -> dict[str, float]:
         return {"mean": math.nan, "std": math.nan, "n": 0}
     return {
         "mean": float(np.mean(finite)),
-        "std": float(np.std(finite)),
+        # Sample std (ddof=1); undefined for n=1, reported as 0.
+        "std": float(np.std(finite, ddof=1)) if finite.size > 1 else 0.0,
         "n": int(finite.size),
     }
 
@@ -113,7 +114,10 @@ def evaluate(
         # Build once to resolve the registered class, then restore weights.
         agent = make_agent(agent_name, params)
         agent = type(agent).load(Path(checkpoint))
-        agent.explore = False  # greedy evaluation
+        # Greedy evaluation: force every exploration switch the agent exposes.
+        agent.explore = False
+        if hasattr(agent, "epsilon"):
+            agent.epsilon = 0.0
 
     set_global_seed(int(seed_list[0]))
     environment = TrafficEnvironment(

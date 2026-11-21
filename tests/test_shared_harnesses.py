@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from src.reinforcement.agents import available_agents, make_agent, register_agent
@@ -143,11 +144,52 @@ def test_persistence_predicts_through_a_fitted_pipeline() -> None:
     assert np.allclose(predictions, expected)
 
 
+def test_time_block_folds_use_a_300_second_embargo() -> None:
+    """SL-3: folds cut on simulation_time, all runs in every fold."""
+    from src.supervised.train import time_block_folds
+
+    rows = [
+        {"run_id": run, "simulation_time": time_s}
+        for run in ("run_a", "run_b")
+        for time_s in range(305, 1805, 5)
+    ]
+    frame = pd.DataFrame(rows)
+
+    folds = time_block_folds(frame, n_splits=3)
+    assert len(folds) == 3
+    for (train_idx, val_idx), train_end in zip(
+        folds, (600, 900, 1200), strict=True
+    ):
+        train_times = frame.iloc[train_idx]["simulation_time"]
+        val_times = frame.iloc[val_idx]["simulation_time"]
+        assert train_times.max() == train_end
+        assert val_times.min() == train_end + 305  # >= 300 s embargo
+        assert val_times.max() - val_times.min() == 295  # 60 instants = 300 s
+        assert set(frame.iloc[train_idx]["run_id"]) == {"run_a", "run_b"}
+        assert set(frame.iloc[val_idx]["run_id"]) == {"run_a", "run_b"}
+
+    with pytest.raises(ValueError):
+        time_block_folds(frame, n_splits=99)
+
+
+def test_effective_params_passes_the_seed_to_seeded_models() -> None:
+    """SL-2: --seed reaches random_state; persistence has none."""
+    from src.supervised.train import _effective_params
+
+    assert _effective_params("decision_tree", {}, seed=43)["random_state"] == 43
+    ridge = _effective_params(
+        "ridge", {"models": {"ridge": {"params": {"alpha": 2.0}}}}, seed=7
+    )
+    assert ridge == {"alpha": 2.0, "random_state": 7}
+    assert "random_state" not in _effective_params("persistence", {}, seed=7)
+
+
 # ---------------------------------------------------------------------------
 # RL agent registry (agents ship per-lane; the harness must work with any)
 # ---------------------------------------------------------------------------
-def test_registry_starts_empty_and_rejects_unknown_names() -> None:
-    assert available_agents() == ()
+def test_registry_rejects_unknown_names() -> None:
+    # NOTE: the registry is intentionally NOT asserted empty here — lanes
+    # register their agents in this shared module (contract-v2 fix).
     with pytest.raises(KeyError):
         make_agent("not_an_agent", {})
 

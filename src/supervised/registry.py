@@ -29,6 +29,10 @@ class ModelSpec:
     default_params: dict[str, Any] = field(default_factory=dict)
     scale: bool = False
     baseline: bool = False
+    # Seeded models receive random_state=<CLI seed> at fit time so --seed
+    # actually changes the fit (SL-2). Baselines such as persistence have
+    # no random_state parameter.
+    seeded: bool = True
 
 
 _CANDIDATES: dict[str, ModelSpec] = {}
@@ -41,6 +45,7 @@ def register_model(
     default_params: dict[str, Any] | None = None,
     scale: bool = False,
     baseline: bool = False,
+    seeded: bool = True,
 ) -> None:
     """Register a model factory, replacing any existing registration."""
     key = name.strip().lower()
@@ -53,6 +58,7 @@ def register_model(
         default_params=dict(default_params or {}),
         scale=scale,
         baseline=baseline,
+        seeded=seeded,
     )
 
 
@@ -124,6 +130,7 @@ _BASELINES.update(
             name="persistence",
             factory=PersistenceRegressor,
             baseline=True,
+            seeded=False,
         )
     }
 )

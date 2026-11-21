@@ -262,7 +262,7 @@ rationale, audit results and limitations are in
 | `models/sl/` | ✅ | Trained model artifacts (`<set>/<model>/predictor.joblib`). | `.joblib` files (gitignored). |
 | `results/sl/` | ✅/📋 | EDA and per-model metrics/summary are complete; residual plots, feature importance and ablation results are next. | Figures and CSV/JSON metrics (gitignored). |
 | `notebooks/01_eda.ipynb` | ✅ | Thin optional notebook wrapper around `explore_sl_dataset.py`; it does not duplicate the analysis. | Notebook, runnable when Jupyter is installed. |
-| `tests/` | ✅ | M2 tests plus M3 feature-construction, target-alignment, leakage, split-embargo, dataset-output, EDA-helper, shared-contract and shared-harness tests (56 tests total). | `pytest` results. |
+| `tests/` | ✅ | M2 tests plus M3 feature-construction, target-alignment, leakage, split-embargo, dataset-output, EDA-helper, shared-contract and shared-harness tests (61 tests total). | `pytest` results. |
 
 The M3 row counts, split boundaries, feature definitions, audit results and
 design rules are documented once in

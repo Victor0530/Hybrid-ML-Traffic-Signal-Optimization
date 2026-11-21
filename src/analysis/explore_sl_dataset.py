@@ -172,8 +172,10 @@ def autocorrelation_table(
 ) -> pd.DataFrame:
     """Autocorrelation of vehicle_count within each run and direction.
 
-    Lags are shifted inside each ``(run_id, direction)`` group so pairs never
-    cross a run boundary. Correlations are computed on the pooled valid pairs.
+    Pairs are matched on exact simulation times (``t`` and ``t + lag*5``)
+    inside each ``(run_id, direction)`` group, so a pair never crosses a run
+    boundary nor an embargo gap where rows are ``lag*5`` seconds apart in
+    the table but much further apart in simulated time.
     """
     ordered = data.sort_values(["run_id", "direction", "simulation_time"])
     rows: list[dict[str, object]] = []
@@ -181,20 +183,25 @@ def autocorrelation_table(
     scopes.extend((direction, ordered[ordered["direction"] == direction]) for direction in DIRECTIONS)
 
     for scope, subset in scopes:
+        base = subset[["run_id", "direction", "simulation_time", "vehicle_count"]]
         for lag in lags:
-            shifted = subset.groupby(["run_id", "direction"], observed=True)[
-                "vehicle_count"
-            ].shift(lag)
-            valid = shifted.notna()
+            lagged = base.copy()
+            lagged["simulation_time"] = lagged["simulation_time"] + lag * 5
+            lagged = lagged.rename(columns={"vehicle_count": "vehicle_count_lag"})
+            merged = base.merge(
+                lagged,
+                on=["run_id", "direction", "simulation_time"],
+                how="inner",
+            )
             correlation = safe_correlation(
-                subset.loc[valid, "vehicle_count"], shifted[valid]
+                merged["vehicle_count"], merged["vehicle_count_lag"]
             )
             rows.append(
                 {
                     "scope": scope,
                     "lag_samples": lag,
                     "lag_seconds": lag * 5,
-                    "pairs": int(valid.sum()),
+                    "pairs": int(len(merged)),
                     "autocorrelation": correlation,
                 }
             )
@@ -315,7 +322,7 @@ def make_plots(
     for split in SPLITS:
         values = data.loc[data["split"] == split, TARGET]
         axis.hist(values, bins=30, alpha=0.55, density=True, label=split)
-    axis.set_xlabel("Target vehicle count (vehicles / 5 s, 300 s ahead)")
+    axis.set_xlabel("Target vehicle count (vehicles on approach, 300 s ahead)")
     axis.set_ylabel("Density")
     axis.set_title("Target distribution by chronological split")
     axis.legend()
@@ -399,7 +406,7 @@ def make_plots(
                 label=split,
             )
     axis.set_xlabel("Simulation time (s)")
-    axis.set_ylabel("Vehicle count per 5 s")
+    axis.set_ylabel("Vehicle count (vehicles on approach)")
     axis.set_title(f"Demand over time: {selected_run}")
     axis.legend(ncol=2, fontsize=8)
     save(figure, "demand_timeseries.png")

@@ -10,6 +10,7 @@ from src.reinforcement.environment import (
     GREEN_PHASES,
     Observation,
     TrafficEnvironment,
+    clearance_path,
     observation_size,
 )
 
@@ -78,11 +79,32 @@ def test_environment_exposes_a_small_safe_action_space() -> None:
         assert environment.green_to_yellow == {0: 1, 2: 3, 4: 5, 6: 7}
         assert environment.decision_interval == 15.0
         assert environment.yellow_seconds == 3.0
+        assert environment.left_clearance_seconds == 6.0
+        assert environment.through_green_phases == frozenset({0, 4})
         assert environment.validate_action(4) == 4
         with pytest.raises(ValueError):
             environment.validate_action(1)
     finally:
         environment.close()
+
+
+def test_clearance_path_flushes_protected_lefts_before_cross_traffic() -> None:
+    """Contract v2: leaving a through green runs the native clearance path."""
+    through = frozenset({0, 4})
+    # Through -> non-adjacent: yellow, protected-left flush, left yellow.
+    assert clearance_path(0, 4, through) == [1, 2, 3]
+    assert clearance_path(0, 6, through) == [1, 2, 3]
+    assert clearance_path(4, 0, through) == [5, 6, 7]
+    # Through -> its own left phase: paired yellow only.
+    assert clearance_path(0, 2, through) == [1]
+    assert clearance_path(4, 6, through) == [5]
+    # Left -> any green: left yellow only (no cross through inserted).
+    assert clearance_path(2, 0, through) == [3]
+    assert clearance_path(2, 6, through) == [3]
+    assert clearance_path(6, 4, through) == [7]
+    assert clearance_path(0, 0, through) == []
+    with pytest.raises(ValueError):
+        clearance_path(1, 4, through)
 
 
 def test_environment_rejects_unknown_scenarios() -> None:

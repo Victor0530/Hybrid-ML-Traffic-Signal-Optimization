@@ -502,7 +502,7 @@ Expected:
 
 ```text
 .............................                                            [100%]
-56 passed
+61 passed
 ```
 
 The M2 subset covers byte-identical route generation, calibrated scenario values,
@@ -878,7 +878,7 @@ intervals and paired statistical tests.
 | M2 | `python -m src.simulation.data_collector --seed 42 --seed 43 --seed 44 --seed 45` | 20 CSVs + manifest |
 | M2 | Add `--overwrite` | Regenerate existing runs |
 | M2 | `python -m src.analysis.characterise_baseline` | Baseline CSVs + plots + report |
-| M2 | `python -m pytest -q` | 56 passed |
+| M2 | `python -m pytest -q` | 61 passed |
 | M3 | `python -m src.preprocessing.build_dataset` | Dataset + splits + audit ✅ |
 | M3 | `python -m src.analysis.explore_sl_dataset` | EDA tables + figures ✅ |
 | M3 | `python -m src.supervised.train --config configs\sl.yaml` | SL training harness ✅ |
@@ -910,7 +910,7 @@ intervals and paired statistical tests.
 - [x] High demand calibrated to 700/approach and confirmed stable.
 - [x] Changing scenario includes a recovery phase (400 → 800 → 400).
 - [x] Baseline characterisation and `docs/fixed_time_baseline.md` completed.
-- [x] Automated M2 tests pass (14 M2 tests; 56 total with M3, contract and harness).
+- [x] Automated M2 tests pass (14 M2 tests; 61 total with M3, contract and harness).
 - [x] Reproducibility verified with fixed seeds.
 
 ### M3–M6 🚧

@@ -1,7 +1,8 @@
 # Shared SL/RL contract v1
 
-> **Status:** implemented and frozen for parallel development.
-> Git tag: `contract-v1`.
+> **Status:** implemented and frozen for parallel development; amended by the
+> contract-v2 review fixes listed in §9.
+> Git tags: `contract-v1` (original freeze), `contract-v2` (review fixes).
 >
 > **Purpose:** give every supervised-learning (SL) and reinforcement-learning
 > (RL) teammate the same data access, preprocessing, model interface, SUMO
@@ -20,15 +21,15 @@ findings in [`sl_eda.md`](sl_eda.md), and the fixed-time baseline in
 
 | Module | Responsibility | Consumers |
 |---|---|---|
-| `src/supervised/data.py` | Load the frozen dataset and return the train/validation/test splits with a selected feature set. | SL lanes A and B |
-| `src/supervised/pipeline.py` | Median imputation with missingness indicators, optional scaling, fitted on training data only. | SL lanes A and B |
-| `src/supervised/registry.py` | Register and construct model candidates through one plugin interface. | SL lanes A and B |
+| `src/supervised/data.py` | Load the frozen dataset and return the train/validation/test splits with a selected feature set. | SL lanes A, B and C |
+| `src/supervised/pipeline.py` | Median imputation with missingness indicators, optional scaling, fitted on training data only. | SL lanes A, B and C |
+| `src/supervised/registry.py` | Register and construct model candidates through one plugin interface. | SL lanes A, B and C |
 | `src/supervised/baselines.py` | Persistence baseline (`future count = current count`). | All SL comparison tables |
 | `src/supervised/predictor.py` | Fit, save, load and call a model through the `[N, S, E, W]` prediction API. | M5 hybrid controller |
 | `src/evaluation/metrics.py` | One implementation of regression and traffic metrics. | SL, RL and final evaluation |
-| `src/reinforcement/environment.py` | TraCI environment with `reset`, `step`, safe phase transitions and episode metrics. | RL lanes C and D |
+| `src/reinforcement/environment.py` | TraCI environment with `reset`, `step`, safe phase transitions and episode metrics. | RL lanes A and D |
 | `src/reinforcement/controllers.py` | Fixed-time 90 s controller used as the non-RL baseline. | RL and final comparison |
-| `configs/rl.yaml` | Environment, action, reward, training and evaluation settings. | RL lanes C and D |
+| `configs/rl.yaml` | Environment, action, reward, training and evaluation settings. | RL lanes A and D |
 
 Do **not** edit these files in a model lane. Add new model or agent modules and
 register them through the existing interfaces. If a shared interface genuinely
@@ -176,25 +177,45 @@ smoke tests and simple baselines. A policy implements `reset()` and
 
 ### 3.2 Actions and safety
 
-The agent chooses only one of the four green phases:
+The action **is** the green phase ID. `env.step()` accepts only the four green
+phases; `0`–`3` action indices are not used:
 
-| Action | Green phase | Meaning | Inserted yellow |
-|---|---|---|---|
-| `0` | 0 | North–south through | 1 |
-| `1` | 2 | North–south left | 3 |
-| `2` | 4 | East–west through | 5 |
-| `3` | 6 | East–west left | 7 |
+| Action | Meaning |
+|---|---|
+| `0` | North–south through |
+| `2` | North–south left |
+| `4` | East–west through |
+| `6` | East–west left |
 
-The environment inserts the matching yellow/clearance phase automatically. An
-agent cannot select yellow. Additional rules:
+The environment never jumps straight from one green to another. It first runs
+the **clearance path** for the requested switch (contract-v2 fix, §9), so
+permissive left-turners are never trapped by cross traffic:
 
-- `None` keeps the current valid phase.
-- A switch before `min_green` is ignored.
+| from \ to | 0 | 2 | 4 | 6 |
+|---|---|---|---|---|
+| **0** | — | 1 | 1, 2, 3 | 1, 2, 3 |
+| **2** | 3 | — | 3 | 3 |
+| **4** | 5, 6, 7 | 5, 6, 7 | — | 5 |
+| **6** | 7 | 7 | 7 | — |
+
+Each number is a phase held in sequence before the target green starts:
+yellow phases run for `yellow_seconds` (3 s), protected-left green phases run
+for `left_clearance_seconds` (6 s). Example: leaving phase 0 for phase 4 walks
+`1 → 2 → 3` (yellow, protected NS-left flush, left yellow) and only then
+applies phase 4 — the same route the native SUMO programme uses. If a decision
+deadline interrupts the walk, the pending target is remembered and the walk
+resumes on the next step.
+
+An agent cannot select yellow or any clearance phase directly. Additional
+rules:
+
+- `None` keeps the current valid phase (or resumes an interrupted walk).
+- A switch before `min_green` is ignored while the current green is stable.
 - `max_green` forces a switch to the next green phase.
 - `fixed_time=True` runs the network's native static 90 s programme and ignores
   actions; this is the fixed-time baseline.
-- Invalid action IDs raise `ValueError` rather than silently doing something
-  unsafe.
+- Invalid action IDs (anything outside 0/2/4/6) raise `ValueError` rather than
+  silently doing something unsafe.
 
 The decision interval, minimum green, maximum green and yellow duration come
 from `configs/rl.yaml` and are part of the contract.
@@ -299,7 +320,9 @@ Rules for every lane:
   train harness: you may edit only **your own** `models.<name>` blocks in
   `configs/sl.yaml` (never frozen). RL ships no agent — create your module
   and register it as `src/reinforcement/agents.py` documents.
-- Do not tune or run the final test evaluation in the parallel phase.
+- Param changes stay inside **your own** `models.<name>` blocks in
+  `configs/sl.yaml`; do not run the final test evaluation in the parallel
+  phase (validation only) and do not touch shared files.
 - Do not commit generated data, models or results.
 - Provide one seeded command that reproduces the reported validation metrics.
 - Run `pytest` before handing work back.
@@ -315,7 +338,7 @@ Run the full suite:
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-Expected: **56 passed** (14 M1/M2, 9 dataset, 6 EDA, 17 contract, 10
+Expected: **61 passed** (14 M1/M2, 9 dataset, 7 EDA, 19 contract, 12
 shared-harness tests).
 
 Run the environment smoke tests from the repository root:
@@ -369,7 +392,7 @@ frozen contract so the SL and RL lanes can train in parallel:
 | `src/reinforcement/train.py`, `src/reinforcement/evaluate.py` | Shared RL harness: train a registered agent with episode logging + checkpoints, evaluate fixed-time or a learned checkpoint across scenarios/seeds. |
 | `configs/rl_agents.yaml` | Per-agent hyperparameters; merged over `configs/rl.yaml` training defaults (rl.yaml stays frozen). Ships with only the shared `training` block. |
 | `configs/sl.yaml` `models:` block | Per-candidate params/grids for the SL harness (sl.yaml was never frozen). |
-| `tests/test_shared_harnesses.py` | Tests covering the helpers, both harnesses and the agent registry (suite now 56 tests). |
+| `tests/test_shared_harnesses.py` | Tests covering the helpers, both harnesses, the time-block folds and the agent registry (suite now 61 tests). |
 
 **Post-freeze fix to a frozen module:** `PersistenceRegressor` in
 `src/supervised/baselines.py` did not inherit from `sklearn.base.BaseEstimator`,
@@ -428,3 +451,53 @@ Rejected: PPO (on-policy and sample-inefficient against expensive hour-long
 SUMO episodes, high tuning risk — PLAN lists it optional only) and any fourth
 algorithm (padding the table). Fixed-time and actuated controllers are
 baselines, not RL candidates.
+
+---
+
+## 9. Contract v2 amendments (review fixes)
+
+The first parallel-phase review reports ([Lane A deadlock report](Junction%20Deadlock%20Report.html),
+Lane C [`issues_found.md`](issues_found.md)) produced this batch of fixes. Everything below is already
+covered by tests; the suite grew from 56 to 61. Tags: `contract-v1` (original
+freeze), `contract-v2` (this batch).
+
+### 9.1 RL environment
+
+| Fix | Issue | What changed |
+|---|---|---|
+| Clearance routing | A-1, RL-1 | `_transition_to` now walks the native clearance path (§3.2 matrix) instead of jumping greens, so permissive left-turners are flushed before cross traffic goes green. New `left_clearance_seconds: 6` in `configs/rl.yaml`; helper `clearance_path(current, target, through_greens)` is unit-tested for all 16 green→green pairs. **All previously reported RL numbers are invalid — re-run evaluations against v2.** |
+| Pending target | RL-4 | An interrupted clearance walk stores `_pending_target`; `action=None` resumes it instead of snapping back to the old green. |
+| Unique route files | A-2 | `write_scenario_routes(..., suffix=...)`; the environment passes a per-process/per-instance suffix, so parallel same-scenario runs no longer overwrite each other's generated routes. Data collection is unchanged (default suffix). |
+| Greedy evaluation | RL-2 | `evaluate.py` forces `agent.explore = False` **and** `agent.epsilon = 0.0` (when present); both flags are documented in the `src/reinforcement/agents.py` interface. |
+| Training seed offset | RL-3 | Training episodes use `seed + 1000 + episode`, so episodes never land on the evaluation grid (seeds 42–45). Evaluation seeds unchanged. |
+| Sample std | RL-5 | `evaluate.py` reports sample standard deviation (`ddof=1`); `0.0` for a single run. |
+| Parallel-safe routes | A-2 | Verified with two simultaneous environment processes writing distinct `*_pid_id.rou.xml` files. |
+
+### 9.2 Supervised learning
+
+| Fix | Issue | What changed |
+|---|---|---|
+| HGB early stopping | SL-1 | `models.hist_gradient_boosting.params` now sets `early_stopping: false` — sklearn's default `"auto"` carved a random 10% holdout out of the ordered training rows. **Lane C should re-run `hist_gradient_boosting`.** |
+| Seeded models | SL-2 | `ModelSpec.seeded` (persistence: `False`); the harness passes `random_state=<--seed>` into every seeded model, so `--seed 43` no longer reproduces `--seed 42` results. |
+| Time-block CV | SL-3 | `--tune` uses `time_block_folds()` — expanding time-block folds with a 300 s embargo, all runs in every fold — instead of `TimeSeriesSplit`, which split by row order and made folds into scenario blocks. |
+| Prediction input | SL-4 | `Predictor.predict_array` wraps NumPy input in a DataFrame with the stored feature names (no sklearn feature-name warnings). |
+
+### 9.3 Supporting code, tests and docs
+
+| Fix | Issue | What changed |
+|---|---|---|
+| Agent-registry test | A-4 | `test_registry_rejects_unknown_names` no longer asserts the registry is empty — lanes register into the shared module by design. |
+| EDA autocorrelation | EDA-1 | Pairs are matched by exact timestamp (`simulation_time + lag*5` merge), so embargo gaps no longer create fake 5-second pairs. |
+| EDA plot labels | EDA-2 | Axis labels say "vehicles on approach" instead of "vehicles / 5 s". |
+| Baseline seeds | REP-1 | `characterise_baseline --seeds ...` accepts an explicit seed list; `experiments/reproduce.py` passes its `--seeds` through. |
+| `PYTHONHASHSEED` | UTIL-1 | No longer assigned at runtime (it only affects child processes anyway); the comment explains it must be set before the interpreter starts. |
+| Demand comment | SIM-1 | The misleading "decorrelates repeated demand draws" comment in `train.py` now states the truth: `vehsPerHour` arrivals are deterministic; seeds vary driver behaviour only. **Known limitation to note in the final report — recollecting with exponential headways would invalidate the frozen dataset, so it is documented instead.** |
+| Lane table / tuning rule | DOC-1, DOC-2 | §1 consumer columns and §3.2 action table corrected; §5 and `reproduce.md` now allow param edits confined to a lane's own `models.*` blocks. |
+
+**Deferred (not part of v2):** HYB-1 (online F4 feature buffer for S2) is
+built with M5; DOC-3 (`lane_c_notes.md` §7 wording) is Lane C's to fix on their
+next tag.
+
+Verification for this batch: `61 passed`; both environment smoke runs unchanged
+for the fixed-time path (mean queue 7.875 / throughput 570 / travel 81.0), and
+a clearance walk `0 → 4` reaches phase 4 with **0 teleports**.

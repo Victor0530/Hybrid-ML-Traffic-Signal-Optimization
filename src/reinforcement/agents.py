@@ -18,7 +18,9 @@ returning an object with the interface used by the harness:
 - ``reset()``                 -- start of an episode
 - ``act(observation)``        -- green phase from ``GREEN_PHASES``
 - ``save(path)``              -- write a checkpoint, return its path
-- ``epsilon`` (optional)      -- reported in the training log
+- ``epsilon`` (optional)      -- reported in the training log; the evaluator
+                                 forces it to 0 for greedy runs
+- ``explore`` (optional)      -- bool flag; the evaluator forces it to False
 - classmethod ``load(path)``  -- used by the evaluator
 """
 

@@ -45,11 +45,18 @@ COLORS = {
 }
 
 
-def load_observations(data_dir: Path, config: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+def load_observations(
+    data_dir: Path,
+    config: dict,
+    seeds: tuple[int, ...] | list[int] = EXPECTED_SEEDS,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load canonical runs listed as successful in the manifest."""
     simulation = config["simulation"]
     duration = int(simulation["duration"])
     interval = int(simulation["sampling_interval"])
+    seeds = tuple(int(seed) for seed in seeds)
+    if not seeds:
+        raise ValueError("At least one seed is required.")
 
     manifest_path = data_dir / "run_manifest.csv"
     if not manifest_path.exists():
@@ -76,6 +83,7 @@ def load_observations(data_dir: Path, config: dict) -> tuple[pd.DataFrame, pd.Da
         (manifest["status"] == "ok")
         & (manifest["duration"] == duration)
         & (manifest["sampling_interval"] == interval)
+        & (manifest["seed"].isin(seeds))
     ].copy()
     if runs.empty:
         raise ValueError(
@@ -122,7 +130,7 @@ def load_observations(data_dir: Path, config: dict) -> tuple[pd.DataFrame, pd.Da
     expected_ids = {
         f"{scenario}_seed{seed}"
         for scenario in config["scenarios"]
-        for seed in EXPECTED_SEEDS
+        for seed in seeds
     }
     actual_ids = set(runs["run_id"])
     if actual_ids != expected_ids:
@@ -131,7 +139,7 @@ def load_observations(data_dir: Path, config: dict) -> tuple[pd.DataFrame, pd.Da
         raise ValueError(
             "Canonical run set mismatch: "
             f"missing={missing_runs}, unexpected={unexpected_runs}. "
-            "Collect all 5 scenarios × 4 seeds."
+            f"Collect all {len(config['scenarios'])} scenarios x {len(seeds)} seeds."
         )
 
     frames = []
@@ -496,11 +504,18 @@ def main() -> int:
     parser.add_argument(
         "--bin-seconds", type=int, default=BIN_SECONDS, help="time-series bin width"
     )
+    parser.add_argument(
+        "--seeds",
+        nargs="+",
+        type=int,
+        default=list(EXPECTED_SEEDS),
+        help="seeds to include (default: 42 43 44 45)",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
     scenarios = list(config["scenarios"])
-    data, runs = load_observations(args.data_dir, config)
+    data, runs = load_observations(args.data_dir, config, seeds=tuple(args.seeds))
     data = add_bins(data, args.bin_seconds)
     time_series = build_time_series(data, args.bin_seconds)
     summary = build_summary(data, time_series, config, args.bin_seconds)

@@ -12,6 +12,7 @@ environment:
   min_green: 5                # seconds; early switches are ignored
   max_green: 60               # seconds; forces the next green after this
   yellow_seconds: 3           # clearance inserted between conflicting greens
+  left_clearance_seconds: 6   # protected-left flush when leaving a through green
   state: S0                   # S0 current only, S1 + phase elapsed, S2 + SL
 
 actions:

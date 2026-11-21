@@ -1278,7 +1278,7 @@ proceed in parallel on top of that contract.
 `src/supervised/train.py` / `src/supervised/evaluate.py` is implemented and
 smoke-verified: un-tuned fits, `--tune` GridSearchCV with a time-aware 300 s
 gap, per-model metric JSON, ranked `summary.csv` and `predictor.joblib`
-outputs all work (56 tests passing). Full candidate training, selection, the
+outputs all work (61 tests passing). Full candidate training, selection, the
 ensemble blend and error analysis remain open.
 
 **Acceptance check:** The best model can load and produce predictions
@@ -1312,7 +1312,7 @@ metrics are frozen in [`docs/contract_v1.md`](docs/contract_v1.md).
 `configs/rl_agents.yaml`) is implemented and smoke-verified: real SUMO
 training runs log episode rewards and save checkpoints, and evaluation runs
 the fixed-time baseline or a learned checkpoint greedily over scenarios and
-seeds; 56 tests pass. No agent implementation ships with the project --- each
+seeds; 61 tests pass. No agent implementation ships with the project --- each
 lane registers its own via `register_agent`. Multi-seed training,
 hyperparameter tuning, the state-representation ablation and §8.8
 diagnostics remain open, so the training/evaluation checklist items stay

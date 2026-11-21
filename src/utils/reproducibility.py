@@ -7,7 +7,6 @@ the SL and RL lanes.
 
 from __future__ import annotations
 
-import os
 import random
 
 import numpy as np
@@ -24,7 +23,8 @@ def set_global_seed(seed: int) -> int:
         raise ValueError(f"seed must be non-negative, got {seed}")
     random.seed(seed)
     np.random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
+    # PYTHONHASHSEED must be set before the interpreter starts (shell/CI
+    # environment); assigning it here would only affect child processes.
     try:
         import torch
     except ImportError:

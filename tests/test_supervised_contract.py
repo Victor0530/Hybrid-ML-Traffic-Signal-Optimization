@@ -123,3 +123,27 @@ def test_predictor_returns_one_value_per_direction(tmp_path: Path) -> None:
     predictor.save(path)
     loaded = type(predictor).load(path)
     assert loaded.predict(window) == pytest.approx(predictions)
+
+
+def test_predict_array_accepts_numpy_without_feature_name_warnings() -> None:
+    """SL-4: ndarray input must be wrapped so sklearn stays silent."""
+    import warnings
+
+    frame = synthetic_dataset()
+    train = frame.loc[frame["split"] == "train"]
+    features = [
+        "vehicle_count",
+        "no_vehicles",
+        "sensor_missing",
+        *[f"direction_{name}" for name in DIRECTIONS],
+    ]
+    predictor = fit_named_predictor(
+        "ridge",
+        train.loc[:, features],
+        train["target_vehicle_count"],
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any warning fails this test
+        predictions = predictor.predict_array(train.loc[:, features].to_numpy(float))
+    assert predictions.shape == (len(train),)

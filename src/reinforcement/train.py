@@ -136,8 +136,12 @@ def train(
             writer.writeheader()
             for episode in range(n_episodes):
                 episode_started = time.perf_counter()
-                # A fresh seed per episode decorrelates repeated demand draws.
-                observation = environment.reset(scenario=scenario, seed=seed + episode)
+                # Training seeds are offset away from the evaluation grid
+                # (42-45) so no training episode is ever an evaluation run.
+                # Demand arrivals are deterministic per scenario; the seed
+                # varies driver behaviour only.
+                episode_seed = seed + 1000 + episode
+                observation = environment.reset(scenario=scenario, seed=episode_seed)
                 agent.reset()
                 total_reward = 0.0
                 steps = 0
@@ -152,7 +156,7 @@ def train(
                 metrics = dict(result.info.get("episode_metrics") or {})
                 row = {
                     "episode": episode,
-                    "seed": seed + episode,
+                    "seed": episode_seed,
                     "scenario": scenario,
                     "total_reward": round(total_reward, 4),
                     "steps": steps,

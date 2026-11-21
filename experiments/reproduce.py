@@ -227,6 +227,8 @@ def main() -> int:
         run_module(
             "src.analysis.characterise_baseline",
             "M2 fixed-time baseline analysis",
+            "--seeds",
+            *(str(seed) for seed in args.seeds),
         )
     if not args.skip_dataset:
         run_module("src.preprocessing.build_dataset", "M3 dataset build")

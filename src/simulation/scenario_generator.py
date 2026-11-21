@@ -92,13 +92,14 @@ def write_scenario_routes(
     scenario_name: str,
     config: dict | None = None,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
+    suffix: str = "",
 ) -> Path:
     config = config or load_config()
     if scenario_name not in config["scenarios"]:
         raise KeyError(f"Unknown scenario: {scenario_name}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{scenario_name}.rou.xml"
+    output_path = output_dir / f"{scenario_name}{suffix}.rou.xml"
     output_path.write_text(build_route_xml(scenario_name, config), encoding="utf-8")
     return output_path
 

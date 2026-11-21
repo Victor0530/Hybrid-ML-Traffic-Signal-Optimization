@@ -55,7 +55,7 @@ A clean run finishes with something close to:
 ```text
 Rows: 38,400 | runs: 20 | missing cells: 0
 ...
-56 passed
+61 passed
 Done in ...
 ```
 
@@ -92,7 +92,8 @@ Hand back per lane: **one seeded command** that reproduces your validation
 metrics, the **metrics JSON**, and short **notes** (assumptions, deviations).
 Run `python -m pytest -q` before you hand anything back.
 
-Full rules — do not edit shared contract files, no tuning, no test-set use,
+Full rules — do not edit shared contract files, param changes only inside your
+own `models.*` blocks, no test-set use,
 no committed data or checkpoints — and the deliverable list are in
 [`contract_v1.md`](contract_v1.md) §5. Why these models were chosen, and what
 they were preferred over, is in [`contract_v1.md`](contract_v1.md) §8.

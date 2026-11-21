@@ -1,0 +1,382 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Junction Deadlock Report</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: single reading column, engineering-note style; phase strips and
+   evidence tables are the only framed objects. */
+:root {
+  --bg: #f6f7f8;
+  --surface: #ffffff;
+  --fg: #1b2026;
+  --muted: #5b6672;
+  --line: #d9dee3;
+  --accent: #1f5f8b;
+  --green: #2e7d4f;
+  --amber: #b7791f;
+  --red: #b3392f;
+  --green-bg: #e3f2e8;
+  --amber-bg: #fbf0dc;
+  --red-bg: #f9e3e0;
+  --code-bg: #eef1f4;
+  --font-display: "Space Grotesk", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161a; --surface: #1a2026; --fg: #e4e8ec; --muted: #9aa5b0; --line: #2e3740;
+    --accent: #6fb3e0; --green: #6cc493; --amber: #e3b25e; --red: #ef8a80;
+    --green-bg: #1d3327; --amber-bg: #3a2f1a; --red-bg: #3d2220; --code-bg: #20272e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161a; --surface: #1a2026; --fg: #e4e8ec; --muted: #9aa5b0; --line: #2e3740;
+  --accent: #6fb3e0; --green: #6cc493; --amber: #e3b25e; --red: #ef8a80;
+  --green-bg: #1d3327; --amber-bg: #3a2f1a; --red-bg: #3d2220; --code-bg: #20272e;
+  color-scheme: dark;
+}
+
+/* Language switching: English shows unless the root says zh. */
+:root:not([data-lang="zh"]) [data-l="zh"] { display: none !important; }
+:root[data-lang="zh"] [data-l="en"] { display: none !important; }
+
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.65;
+}
+.wrap {
+  max-width: 780px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+  display: flex; flex-direction: column; gap: 40px;
+}
+header { display: flex; flex-direction: column; gap: 14px; }
+.topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.eyebrow { font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.lang button {
+  font: 500 13px var(--font-body); padding: 6px 12px; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+}
+.lang button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.lang button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(28px, 5vw, 38px); line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 21px; line-height: 1.3; margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 68ch; }
+section { display: flex; flex-direction: column; gap: 14px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--muted); }
+.meta b { color: var(--fg); font-weight: 500; }
+.lede { font-size: 17.5px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+ul { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 8px; max-width: 68ch; }
+
+/* Phase strips */
+.strips { display: flex; flex-direction: column; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+.strip-label { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.strip { display: flex; gap: 3px; overflow-x: auto; }
+.ph {
+  flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  padding: 8px 10px; border-radius: 4px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.3; min-height: 54px;
+  border: 1px solid transparent;
+}
+.ph .n { font-weight: 500; font-size: 13.5px; }
+.ph.g { background: var(--green-bg); color: var(--green); }
+.ph.y { background: var(--amber-bg); color: var(--amber); }
+.ph.l { background: var(--green-bg); color: var(--green); border-style: dashed; border-color: var(--green); }
+.ph.skip { background: transparent; color: var(--red); border: 1px dashed var(--red); text-decoration: line-through; }
+.strip-note { font-size: 13.5px; color: var(--muted); margin-top: 6px; }
+
+/* Tables */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font-weight: 600; font-size: 13px; color: var(--muted); white-space: nowrap; }
+td.num { font-family: var(--font-mono); font-size: 13.5px; white-space: nowrap; }
+.bad { color: var(--red); font-weight: 600; }
+.chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.chip.ok { background: var(--green-bg); color: var(--green); }
+.chip.mixed { background: var(--amber-bg); color: var(--amber); }
+.chip.fail { background: var(--red-bg); color: var(--red); }
+
+pre.trace {
+  margin: 0; overflow-x: auto; background: var(--code-bg); border-radius: 8px; padding: 14px 16px;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.55;
+}
+pre.trace .hot { color: var(--red); font-weight: 500; }
+
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.opt { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.opt h3 { margin: 0; font-size: 15.5px; font-weight: 600; line-height: 1.35; }
+.opt p { font-size: 14.5px; }
+.opt .touches { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+footer { font-size: 13.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 18px; display: flex; flex-direction: column; gap: 6px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .lang button { transition: background-color 120ms ease, color 120ms ease; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="topline">
+      <span class="eyebrow"><span data-l="en">Lane A finding · contract-v1</span><span data-l="zh" lang="zh-CN">Lane A 发现 · contract-v1</span></span>
+      <div class="lang" role="group" aria-label="Language / 语言">
+        <button type="button" id="btn-en" data-set="en" aria-pressed="true">English</button>
+        <button type="button" id="btn-zh" data-set="zh" aria-pressed="false">中文</button>
+      </div>
+    </div>
+    <h1>
+      <span data-l="en">The RL environment deadlocks the junction</span>
+      <span data-l="zh" lang="zh-CN">RL 环境会让路口死锁</span>
+    </h1>
+    <div class="meta">
+      <span><span data-l="en">From</span><span data-l="zh" lang="zh-CN">提交人</span> <b>Evan Chong (Lane A)</b></span>
+      <span><span data-l="en">To</span><span data-l="zh" lang="zh-CN">致</span> <b><span data-l="en">project owner (Lane D)</span><span data-l="zh" lang="zh-CN">项目负责人（Lane D）</span></b></span>
+      <span><span data-l="en">Affects</span><span data-l="zh" lang="zh-CN">影响</span> <b><span data-l="en">all RL agents</span><span data-l="zh" lang="zh-CN">所有 RL agent</span></b></span>
+      <span><b>2026-11-19</b></span>
+    </div>
+    <p class="lede" data-l="en">When an agent switches between the through phases (0 ↔ 4), <code>TrafficEnvironment</code> inserts only the yellow phase and goes straight to the other through phase. It skips the protected-left clearance (phases 2 and 6) that the native fixed-time program always runs. Permissive left-turners already inside the junction get trapped by the crossing flow, and the junction deadlocks until SUMO teleports them after the default 300&nbsp;s.</p>
+    <p class="lede" data-l="zh" lang="zh-CN">agent 在两个直行相位之间切换（0 ↔ 4）时，<code>TrafficEnvironment</code> 只插入黄灯，然后直接进入另一个直行相位，跳过了固定配时方案每次都会执行的左转专用清空相位（2 和 6）。已经开进路口的让行左转车会被横向车流困住，路口随之死锁，直到 SUMO 按默认的 300&nbsp;秒把这些车瞬移走。</p>
+  </header>
+
+  <section>
+    <h2><span data-l="en">What the two controllers actually run</span><span data-l="zh" lang="zh-CN">两种控制方式实际执行的相位</span></h2>
+    <div class="strips">
+      <div>
+        <div class="strip-label"><span data-l="en">Native fixed-time plan (90 s cycle)</span><span data-l="zh" lang="zh-CN">原生固定配时方案（90 秒周期）</span></div>
+        <div class="strip">
+          <div class="ph g"><span class="n">0</span><span>33 s</span></div>
+          <div class="ph y"><span class="n">1</span><span>3 s</span></div>
+          <div class="ph l"><span class="n">2 ←</span><span>6 s</span></div>
+          <div class="ph y"><span class="n">3</span><span>3 s</span></div>
+          <div class="ph g"><span class="n">4</span><span>33 s</span></div>
+          <div class="ph y"><span class="n">5</span><span>3 s</span></div>
+          <div class="ph l"><span class="n">6 ←</span><span>6 s</span></div>
+          <div class="ph y"><span class="n">7</span><span>3 s</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="strip-label"><span data-l="en">RL environment, agent switches 0 → 4</span><span data-l="zh" lang="zh-CN">RL 环境中 agent 从 0 切到 4</span></div>
+        <div class="strip">
+          <div class="ph g"><span class="n">0</span><span>≥12 s</span></div>
+          <div class="ph y"><span class="n">1</span><span>3 s</span></div>
+          <div class="ph skip"><span class="n">2 ←</span><span data-l="en">skipped</span><span data-l="zh" lang="zh-CN">被跳过</span></div>
+          <div class="ph skip"><span class="n">3</span><span data-l="en">skipped</span><span data-l="zh" lang="zh-CN">被跳过</span></div>
+          <div class="ph g"><span class="n">4</span><span>≥12 s</span></div>
+        </div>
+      </div>
+      <p class="strip-note" data-l="en">Green = green phase, amber = yellow clearance, dashed = protected left turn. Phase 0 is <span class="mono">GGgrrrGGgrrr</span>: north–south through plus a permissive left (<span class="mono">g</span>), so left-turners enter the junction and wait for a gap.</p>
+      <p class="strip-note" data-l="zh" lang="zh-CN">绿色为绿灯相位，琥珀色为黄灯清空，虚线框为左转专用相位。相位 0 的信号串是 <span class="mono">GGgrrrGGgrrr</span>：南北直行加让行左转（<span class="mono">g</span>），所以左转车会先开进路口，再等对向车流的空档。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span data-l="en">Evidence</span><span data-l="zh" lang="zh-CN">证据</span></h2>
+    <p data-l="en">Mean total queue (<code>mean_queue_total</code>, vehicles) over full 3,600 s episodes. Hand-coded policies use only actions 0 and 4.</p>
+    <p data-l="zh" lang="zh-CN">指标是完整 3,600 秒 episode 的平均排队总数（<code>mean_queue_total</code>，单位：辆）。手写策略只使用动作 0 和 4。</p>
+    <div class="tbl">
+      <table>
+        <thead>
+          <tr>
+            <th><span data-l="en">Policy</span><span data-l="zh" lang="zh-CN">策略</span></th>
+            <th><span data-l="en">medium, seeds 42/43/44/45</span><span data-l="zh" lang="zh-CN">medium，seed 42/43/44/45</span></th>
+            <th><span data-l="en">high, seeds 42/43/44/45</span><span data-l="zh" lang="zh-CN">high，seed 42/43/44/45</span></th>
+            <th><span data-l="en">Deadlock</span><span data-l="zh" lang="zh-CN">死锁</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span data-l="en">Fixed-time (native 90 s plan)</span><span data-l="zh" lang="zh-CN">固定配时（原生 90 秒方案）</span></td>
+            <td class="num">≈ 13.8</td>
+            <td class="num">≈ 16</td>
+            <td><span class="chip ok"><span data-l="en">never</span><span data-l="zh" lang="zh-CN">没有</span></span></td>
+          </tr>
+          <tr>
+            <td><span data-l="en">Alternate 0/4 every 15 s</span><span data-l="zh" lang="zh-CN">每 15 秒交替 0/4</span></td>
+            <td class="num">4.2 / 23.7 / 4.1 / <span class="bad">233.6</span></td>
+            <td class="num"><span class="bad">255 / 289 / 117 / 249</span></td>
+            <td><span class="chip fail"><span data-l="en">6 of 8 runs</span><span data-l="zh" lang="zh-CN">8 次中 6 次</span></span></td>
+          </tr>
+          <tr>
+            <td><span data-l="en">Serve the longer axis (0/4 only)</span><span data-l="zh" lang="zh-CN">放行排队更长的轴（只用 0/4）</span></td>
+            <td class="num">4.1 / 5.0 / 3.9 / 4.3</td>
+            <td class="num"><span class="bad">251 / 326 / 347 / 248</span></td>
+            <td><span class="chip mixed"><span data-l="en">all high runs</span><span data-l="zh" lang="zh-CN">high 全部</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ul data-l="en">
+      <li>When no deadlock happens, adaptive control beats fixed-time by about 3×.</li>
+      <li>When one does happen, it is catastrophic, and under high demand it happens in every run.</li>
+      <li>SUMO logs <code>Teleporting … waited too long (yield), lane=':C_5_0'</code>. Lanes starting with <code>:C_</code> are inside the junction.</li>
+    </ul>
+    <ul data-l="zh" lang="zh-CN">
+      <li>不发生死锁时，自适应控制比固定配时好大约 3 倍。</li>
+      <li>一旦发生死锁，结果就非常糟；在 high 场景下每次都会发生。</li>
+      <li>SUMO 日志出现 <code>Teleporting … waited too long (yield), lane=':C_5_0'</code>。以 <code>:C_</code> 开头的车道位于路口内部。</li>
+    </ul>
+
+    <p data-l="en">Step trace of the trained Q-Learning agent (greedy, medium, seed 42). It alternates normally with queues of 6 or fewer, then all four approaches start rising together at about 2,010 s:</p>
+    <p data-l="zh" lang="zh-CN">训练好的 Q-Learning agent 的逐步记录（贪心策略，medium，seed 42）。它一直正常交替，排队都在 6 辆以内；约 2,010 秒开始，四个方向的排队同时上涨：</p>
+    <pre class="trace">time   phase  action  queues (N, S, E, W)
+1965   0      0       (0, 0, 3, 3)
+1980   0      4       (0, 0, 6, 5)
+1995   4      0       (2, 1, 0, 0)
+<span class="hot">2010   0      4       (4, 5, 3, 2)
+2025   4      2       (6, 6, 6, 3)
+2040   2      4       (8, 9, 8, 6)
+2070   6      4       (13, 13, 12, 10)
+2100   6      0       (19, 18, 17, 16)
+2400   0      0       (69, 69, 61, 62)</span></pre>
+  </section>
+
+  <section>
+    <h2><span data-l="en">Q-Learning on the full evaluation grid</span><span data-l="zh" lang="zh-CN">Q-Learning 全场景评估结果</span></h2>
+    <p data-l="en">Tabular Q-Learning (Lane A), trained on medium for 400 episodes of 900 s, evaluated greedily on every scenario with seeds 42–45, full hour each. Mean total queue ± standard deviation across seeds:</p>
+    <p data-l="zh" lang="zh-CN">表格型 Q-Learning（Lane A），在 medium 场景训练 400 个 900 秒的 episode，然后用贪心策略在全部场景、seed 42–45 上各评估完整 1 小时。下表为平均排队总数 ± 各 seed 间的标准差：</p>
+    <div class="tbl">
+      <table>
+        <thead>
+          <tr>
+            <th><span data-l="en">Scenario</span><span data-l="zh" lang="zh-CN">场景</span></th>
+            <th>Q-Learning</th>
+            <th><span data-l="en">Fixed-time</span><span data-l="zh" lang="zh-CN">固定配时</span></th>
+            <th><span data-l="en">Per seed (Q-Learning)</span><span data-l="zh" lang="zh-CN">各 seed（Q-Learning）</span></th>
+            <th><span data-l="en">Outcome</span><span data-l="zh" lang="zh-CN">结果</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>low</td><td class="num">4.9 ± 0.2</td><td class="num">6.6 ± 0.1</td><td class="num">4.8 / 4.7 / 4.9 / 5.3</td>
+            <td><span class="chip ok"><span data-l="en">26% better</span><span data-l="zh" lang="zh-CN">好 26%</span></span></td>
+          </tr>
+          <tr>
+            <td>uneven</td><td class="num">6.2 ± 0.3</td><td class="num">29.2 ± 0.9</td><td class="num">6.1 / 6.1 / 6.7 / 6.0</td>
+            <td><span class="chip ok"><span data-l="en">4.7× better</span><span data-l="zh" lang="zh-CN">好 4.7 倍</span></span></td>
+          </tr>
+          <tr>
+            <td>medium</td><td class="num">100.3 ± 64.1</td><td class="num">13.8 ± 0.1</td><td class="num"><span class="bad">98.4 / 107.4 / 188.2</span> / 7.3</td>
+            <td><span class="chip fail"><span data-l="en">deadlock in 3 of 4</span><span data-l="zh" lang="zh-CN">4 次中 3 次死锁</span></span></td>
+          </tr>
+          <tr>
+            <td>high</td><td class="num">129.3 ± 82.7</td><td class="num">17.6 ± 0.2</td><td class="num"><span class="bad">265.4 / 48.4 / 82.2 / 121.4</span></td>
+            <td><span class="chip fail"><span data-l="en">deadlock in 4 of 4</span><span data-l="zh" lang="zh-CN">4 次全部死锁</span></span></td>
+          </tr>
+          <tr>
+            <td>changing</td><td class="num">45.1 ± 22.7</td><td class="num">19.2 ± 0.4</td><td class="num">9.7 / <span class="bad">71.4 / 56.2 / 43.3</span></td>
+            <td><span class="chip fail"><span data-l="en">deadlock in 3 of 4</span><span data-l="zh" lang="zh-CN">4 次中 3 次死锁</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ul data-l="en">
+      <li>The agent did learn adaptive control. On <b>uneven</b> (north 800 veh/h, south and east 250) it shifts green toward the busy approach and cuts the queue from 29.2 to 6.2, the case where <code>fixed_time_baseline.md</code> §6 expected RL to win.</li>
+      <li>Every losing cell is a deadlock. Runs that escape it beat fixed-time in the same scenario (medium seed 45: 7.3 vs 13.8; changing seed 42: 9.7 vs 19.2).</li>
+      <li>Results are deterministic: a repeat run reproduced the medium numbers exactly.</li>
+    </ul>
+    <ul data-l="zh" lang="zh-CN">
+      <li>agent 确实学会了自适应控制。在 <b>uneven</b> 场景（北向 800 veh/h，南向和东向 250）中，它把绿灯时间分给最忙的方向，排队从 29.2 降到 6.2。这正是 <code>fixed_time_baseline.md</code> §6 预测 RL 应该赢的情况。</li>
+      <li>输掉的每一格都是死锁造成的。同一场景中没有死锁的运行都比固定配时好（medium seed 45：7.3 对 13.8；changing seed 42：9.7 对 19.2）。</li>
+      <li>结果是确定的：重跑一次，medium 的数字完全一致。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span data-l="en">Why agents cannot fix this themselves</span><span data-l="zh" lang="zh-CN">为什么 agent 自己解决不了</span></h2>
+    <ul data-l="en">
+      <li>Choosing phase 2 or 6 holds it for at least one 15 s decision interval, compared with 6 s in the fixed plan. Cycling through all four phases this way overloads the junction (mean queue 136 on medium).</li>
+      <li>The observation has no left-lane or junction-internal information, so an agent cannot see a deadlock building up.</li>
+      <li>This affects Lane D's DQN and Double DQN as well as Lane A's Q-Learning.</li>
+    </ul>
+    <ul data-l="zh" lang="zh-CN">
+      <li>选择相位 2 或 6 后，至少要保持一个 15 秒的决策间隔，而固定配时只用 6 秒。如果用这种方式依次走完四个相位，路口会超负荷（medium 场景平均排队 136）。</li>
+      <li>observation 里没有左转车道或路口内部的信息，agent 看不到死锁正在形成。</li>
+      <li>这个问题会影响 Lane D 的 DQN 和 Double DQN，也会影响 Lane A 的 Q-Learning。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span data-l="en">Possible fixes</span><span data-l="zh" lang="zh-CN">可能的修复方式</span></h2>
+    <p data-l="en">Each option changes frozen files, so it needs a contract v2 decision.</p>
+    <p data-l="zh" lang="zh-CN">每种方式都要修改冻结的合约文件，需要作为 contract v2 来决定。</p>
+    <div class="options">
+      <div class="opt">
+        <h3><span data-l="en">Run the left clearance automatically</span><span data-l="zh" lang="zh-CN">自动执行左转清空</span></h3>
+        <p data-l="en">When leaving a through phase, run a short protected-left phase before the next green (0 → 1 → 2 for a few seconds → 3 → 4), as the native plan does.</p>
+        <p data-l="zh" lang="zh-CN">离开直行相位时，在进入下一个绿灯前先跑一个短的左转专用相位（0 → 1 → 2 持续几秒 → 3 → 4），和原生方案一致。</p>
+        <span class="touches">environment.py</span>
+      </div>
+      <div class="opt">
+        <h3><span data-l="en">Let a blocked junction recover faster</span><span data-l="zh" lang="zh-CN">让堵塞的路口更快恢复</span></h3>
+        <p data-l="en">Lower SUMO <code>--time-to-teleport</code> or add <code>--ignore-junction-blocker</code>. Cheaper, but it masks the problem.</p>
+        <p data-l="zh" lang="zh-CN">调低 SUMO 的 <code>--time-to-teleport</code>，或加上 <code>--ignore-junction-blocker</code>。改动小，但会掩盖问题。</p>
+        <span class="touches">environment.py · sumocfg</span>
+      </div>
+      <div class="opt">
+        <h3><span data-l="en">Give agents the information</span><span data-l="zh" lang="zh-CN">把信息交给 agent</span></h3>
+        <p data-l="en">Add left-lane queues to the observation and/or shorten <code>decision_interval</code>, so agents can learn when to use phases 2 and 6.</p>
+        <p data-l="zh" lang="zh-CN">在 observation 里加入左转车道排队，并且/或者缩短 <code>decision_interval</code>，让 agent 能学会什么时候使用相位 2 和 6。</p>
+        <span class="touches">environment.py · rl.yaml</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span data-l="en">Smaller contract issues</span><span data-l="zh" lang="zh-CN">其他较小的合约问题</span></h2>
+    <ul data-l="en">
+      <li><code>contract_v1.md</code> §3.2 lists actions as 0–3, but <code>env.step()</code> accepts only phase numbers 0, 2, 4, 6; passing 1 or 3 raises <code>ValueError</code>. The doc and the code should agree.</li>
+      <li><code>TrafficEnvironment.reset()</code> rewrites <code>sumo/routes/generated/&lt;scenario&gt;.rou.xml</code> on every call. Two processes running the same scenario in parallel corrupt that file (<code>invalid document structure</code>, then <code>Connection closed by SUMO</code>).</li>
+      <li>Registering an agent in <code>agents.py</code>, as the contract instructs, breaks <code>test_registry_starts_empty…</code>. On <code>lane-a</code> the assertion is relaxed to <code>"dummy" not in available_agents()</code>.</li>
+    </ul>
+    <ul data-l="zh" lang="zh-CN">
+      <li><code>contract_v1.md</code> §3.2 把动作写成 0–3，但 <code>env.step()</code> 只接受相位编号 0、2、4、6，传入 1 或 3 会抛出 <code>ValueError</code>。文档和代码需要统一。</li>
+      <li><code>TrafficEnvironment.reset()</code> 每次调用都会重写 <code>sumo/routes/generated/&lt;scenario&gt;.rou.xml</code>。两个进程并行跑同一个场景会把这个文件写坏（报 <code>invalid document structure</code>，接着是 <code>Connection closed by SUMO</code>）。</li>
+      <li>按合约要求在 <code>agents.py</code> 里注册 agent，会让 <code>test_registry_starts_empty…</code> 失败。<code>lane-a</code> 分支上已把这条断言放宽为 <code>"dummy" not in available_agents()</code>。</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span data-l="en">Fixed-time numbers: <code>python -m src.reinforcement.evaluate --agent fixed</code> and <code>docs/fixed_time_baseline.md</code>. Hand-coded policies were run through <code>TrafficEnvironment.run_episode</code>; the script is available on request.</span>
+    <span data-l="zh" lang="zh-CN">固定配时数据来自 <code>python -m src.reinforcement.evaluate --agent fixed</code> 和 <code>docs/fixed_time_baseline.md</code>。手写策略通过 <code>TrafficEnvironment.run_episode</code> 运行，需要脚本可以向我索取。</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var buttons = document.querySelectorAll('.lang button');
+  function apply(lang) {
+    root.setAttribute('data-lang', lang);
+    document.title = lang === 'zh' ? '路口死锁问题报告' : 'Junction Deadlock Report';
+    buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.set === lang)); });
+  }
+  function initial() {
+    var h = (location.hash || '').slice(1);
+    if (h === 'en' || h === 'zh') return h;
+    try { var s = localStorage.getItem('report-lang'); if (s === 'en' || s === 'zh') return s; } catch (e) {}
+    return (navigator.language || '').toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en';
+  }
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var lang = b.dataset.set;
+      apply(lang);
+      try { localStorage.setItem('report-lang', lang); } catch (e) {}
+      if (location.hash.slice(1) !== lang) location.hash = lang;
+    });
+  });
+  window.addEventListener('hashchange', function () {
+    var h = location.hash.slice(1);
+    if (h === 'en' || h === 'zh') apply(h);
+  });
+  apply(initial());
+})();
+</script>
+
+</body></html>

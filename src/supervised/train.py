@@ -9,10 +9,12 @@ Usage:
     python -m src.supervised.train --models ridge persistence --feature-set F0
     python -m src.supervised.train --models random_forest --tune
 
-Tuning uses TimeSeriesSplit with a row gap that equals the 300 s embargo of
-the frozen splits. The dataset stores four direction rows per sampling
-instant, so the row-level gap is ``60 instants * 4 rows = 240`` rows — the
-same embargo the contract expresses as "gap=60" instants.
+Tuning uses expanding time-block cross-validation inside the train split:
+each fold trains on simulation times <= E and validates on the contiguous
+300 s window that starts 305 s later, so every fold keeps all 20 runs and
+no training target can overlap a validation input (the same 300 s embargo
+rule the frozen splits use). ``--seed`` is passed to every seeded model as
+``random_state`` so runs are repeatable and seed-sensitive.
 """
 
 from __future__ import annotations
@@ -24,8 +26,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
-from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+from sklearn.model_selection import GridSearchCV
 
 from src.evaluation.metrics import regression_metrics
 from src.preprocessing.features import load_sl_config
@@ -40,7 +43,49 @@ from src.supervised.registry import build_model, model_spec
 from src.utils import set_global_seed
 
 DEFAULT_CONFIG = Path("configs/sl.yaml")
-ROWS_PER_INSTANT = 4  # north/south/east/west rows per sampling timestamp
+
+
+def time_block_folds(
+    frame: pd.DataFrame,
+    n_splits: int = 3,
+    gap_seconds: int = 300,
+    window_seconds: int = 300,
+    interval_seconds: int = 5,
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Expanding-window CV over ``simulation_time`` (all runs in every fold).
+
+    The last validation window ends at the last training instant; earlier
+    windows step back by ``window_seconds``. Each fold trains on rows at
+    most ``train_end = val_end - gap - window`` seconds and validates on
+    the ``window_seconds`` window ending at ``val_end``, which keeps a gap
+    of at least ``gap_seconds`` between the newest training target and the
+    oldest validation input.
+    """
+    if n_splits < 1:
+        raise ValueError("n_splits must be positive")
+    times = frame["simulation_time"].to_numpy(dtype=float)
+    if times.size == 0:
+        raise ValueError("Cannot build folds from an empty frame")
+    min_time = float(times.min())
+    max_time = float(times.max())
+
+    folds: list[tuple[np.ndarray, np.ndarray]] = []
+    for split in range(n_splits):
+        val_end = max_time - (n_splits - 1 - split) * window_seconds
+        val_start = val_end - window_seconds + interval_seconds
+        train_end = val_end - gap_seconds - window_seconds
+        if train_end < min_time:
+            raise ValueError(
+                f"Not enough training time for fold {split + 1}: train must "
+                f"end at or after {min_time}s but the earliest allowed end "
+                f"is {train_end}s (reduce n_splits or the embargo window)"
+            )
+        train_idx = np.flatnonzero(times <= train_end)
+        val_idx = np.flatnonzero((times >= val_start) & (times <= val_end))
+        if train_idx.size == 0 or val_idx.size == 0:
+            raise ValueError(f"Fold {split + 1} produced an empty split")
+        folds.append((train_idx, val_idx))
+    return folds
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -74,6 +119,14 @@ def _params_for(name: str, config: dict[str, Any]) -> dict[str, Any]:
     return dict(block.get("params") or {})
 
 
+def _effective_params(name: str, config: dict[str, Any], seed: int) -> dict[str, Any]:
+    """Config params plus the CLI seed for models that accept random_state."""
+    params = _params_for(name, config)
+    if model_spec(name).seeded:
+        params = {**params, "random_state": int(seed)}
+    return params
+
+
 def _fit_one(
     name: str,
     splits: dict[str, Any],
@@ -84,7 +137,7 @@ def _fit_one(
 ) -> tuple[dict[str, Any], Predictor]:
     """Fit one model on train, score on validation, return its metrics record."""
     train, validation = splits["train"], splits["validation"]
-    params = _params_for(name, config)
+    params = _effective_params(name, config, seed)
     spec = model_spec(name)
     started = time.perf_counter()
     best_params: dict[str, Any] | None = None
@@ -101,7 +154,7 @@ def _fit_one(
         search = GridSearchCV(
             pipeline,
             grid,
-            cv=TimeSeriesSplit(n_splits=3, gap=ROWS_PER_INSTANT * 60),
+            cv=time_block_folds(train.frame),
             scoring="neg_mean_absolute_error",
             n_jobs=1,  # estimators such as random_forest already use all cores
             refit=True,

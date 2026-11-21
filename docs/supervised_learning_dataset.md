@@ -338,7 +338,7 @@ data/processed/data_audit.json
 
 All are gitignored and rebuildable. The builder uses stable sorting and no
 random sampling; two consecutive rebuilds produced byte-identical datasets
-(verified by SHA-256). Test results: the full suite passes (**56** at last
+(verified by SHA-256). Test results: the full suite passes (**61** at last
 count), of which 9 are the dataset tests listed in §8 below.
 
 ## 8. Verification tests

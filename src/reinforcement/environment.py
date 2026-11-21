@@ -11,12 +11,20 @@ Actions select one of the four green phases. Yellow/clearance phases are
 inserted by the environment, never chosen by the agent. Passing ``None`` keeps
 the current valid phase. With ``fixed_time=True`` the SUMO static programme
 runs normally and the action is ignored, which is the fixed-time baseline.
+
+Safe transitions follow the native programme's clearance rule: whenever a
+through green (0, 4) is left for a non-adjacent green, the environment runs
+the paired yellow, the protected-left flush phase and its yellow before the
+target green (0 -> 1 -> 2 -> 3 -> 4). This guarantees that permissive
+left-turners already inside the junction get a protected phase to exit
+before cross traffic starts, which prevents junction gridlock.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,6 +49,30 @@ GREEN_PHASES = (0, 2, 4, 6)
 YELLOW_BY_GREEN = {0: 1, 2: 3, 4: 5, 6: 7}
 YELLOW_TO_GREEN = {yellow: green for green, yellow in YELLOW_BY_GREEN.items()}
 STATE_SIZES = {"S0": 20, "S1": 21, "S2": 25}
+
+
+def clearance_path(current: int, target: int, through_greens: frozenset[int]) -> list[int]:
+    """Phases to run between two greens so no movement loses its clearance.
+
+    Mirrors the native programme (0->1->2->3->4->5->6->7):
+
+    - leaving a through green for a non-adjacent green runs the paired
+      yellow, the protected-left flush and its yellow (0 -> 4 gives
+      [1, 2, 3]) so trapped left-turners exit before cross traffic starts;
+    - leaving a through green for its own left phase runs only the paired
+      yellow (0 -> 2 gives [1]);
+    - leaving a left green runs only its yellow (2 -> 0 gives [3]).
+    """
+    if current == target:
+        return []
+    if current not in YELLOW_BY_GREEN:
+        raise ValueError(f"{current!r} is not a green phase")
+    greens = sorted(YELLOW_BY_GREEN)  # [0, 2, 4, 6]
+    next_green = greens[(greens.index(current) + 1) % len(greens)]
+    path = [YELLOW_BY_GREEN[current]]
+    if current in through_greens and target != next_green:
+        path.extend([next_green, YELLOW_BY_GREEN[next_green]])
+    return path
 
 
 def _resolve_path(path: str | Path) -> Path:
@@ -177,12 +209,17 @@ class TrafficEnvironment:
         self.yellow_seconds = float(
             self.environment_config.get("yellow_seconds", 3)
         )
+        self.left_clearance_seconds = float(
+            self.environment_config.get("left_clearance_seconds", 6)
+        )
         if self.decision_interval <= 0:
             raise ValueError("decision_interval must be positive")
         if not 0 <= self.min_green <= self.max_green:
             raise ValueError("min_green must be between 0 and max_green")
         if self.yellow_seconds <= 0:
             raise ValueError("yellow_seconds must be positive")
+        if self.left_clearance_seconds <= 0:
+            raise ValueError("left_clearance_seconds must be positive")
 
         self.green_phases = tuple(
             int(phase) for phase in self.action_config["green_phases"]
@@ -200,6 +237,17 @@ class TrafficEnvironment:
         self.yellow_to_green = {
             yellow: green for green, yellow in self.green_to_yellow.items()
         }
+        # Through greens (0, 4) must flush protected lefts before cross
+        # traffic starts; derive them from the configured action names.
+        names = [str(name) for name in self.action_config.get("names") or []]
+        if names and len(names) == len(self.green_phases):
+            self.through_green_phases = frozenset(
+                green
+                for green, name in zip(self.green_phases, names, strict=True)
+                if "through" in name.lower()
+            )
+        else:
+            self.through_green_phases = frozenset(self.green_phases[::2])
 
         if scenario not in self.traffic_config["scenarios"]:
             raise ValueError(
@@ -227,6 +275,10 @@ class TrafficEnvironment:
         self._arrived = 0
         self._teleports = 0
         self._episode_done = False
+        self._pending_target: int | None = None
+        # Unique route file per environment instance so parallel SUMO
+        # processes never write the same path concurrently.
+        self._route_suffix = f"_{os.getpid()}_{id(self)}"
 
     # ------------------------------------------------------------------
     # Environment API
@@ -252,7 +304,9 @@ class TrafficEnvironment:
         if fixed_time is not None:
             self.fixed_time = bool(fixed_time)
 
-        route_path = write_scenario_routes(self.scenario, self.traffic_config)
+        route_path = write_scenario_routes(
+            self.scenario, self.traffic_config, suffix=self._route_suffix
+        )
         binary = resolve_sumo_binary("sumo-gui" if self.gui else "sumo")
         traci.start(
             [
@@ -281,6 +335,7 @@ class TrafficEnvironment:
         self._arrived = 0
         self._teleports = 0
         self._episode_done = False
+        self._pending_target = None
 
         current_phase = int(traci.trafficlight.getPhase(self.tls_id))
         if self.fixed_time:
@@ -412,7 +467,10 @@ class TrafficEnvironment:
         now = float(traci.simulation.getTime())
 
         if action is None:
-            if current in self.green_phases:
+            if self._pending_target is not None:
+                # Resume a clearance walk that the deadline interrupted.
+                target = self._pending_target
+            elif current in self.green_phases:
                 target = current
             elif current in self.yellow_to_green:
                 target = self.yellow_to_green[current]
@@ -421,7 +479,7 @@ class TrafficEnvironment:
         else:
             target = self._validate_action(action)
 
-        if current in self.green_phases:
+        if current in self.green_phases and self._pending_target is None:
             elapsed = now - self._phase_started_at
             if elapsed < self.min_green:
                 return current
@@ -446,29 +504,52 @@ class TrafficEnvironment:
             if self._last_time >= self.duration - 1e-9:
                 break
 
+    def clearance_path(self, target: int) -> list[int]:
+        """Phases to run from the current phase before reaching ``target``.
+
+        See :func:`clearance_path`; through greens flush protected lefts so
+        permissive left-turners can leave the junction before cross traffic.
+        """
+        current = int(traci.trafficlight.getPhase(self.tls_id))
+        if current in self.yellow_to_green:
+            # Mid-clearance: the finished yellow is already accounted for.
+            current = self.yellow_to_green[current]
+            path = clearance_path(current, target, self.through_green_phases)
+            return path[1:] if path else path
+        return clearance_path(current, target, self.through_green_phases)
+
     def _transition_to(self, target: int, deadline: float) -> None:
         current = int(traci.trafficlight.getPhase(self.tls_id))
         if current == target:
+            self._pending_target = None
             return
+        self._pending_target = target
 
         if current in self.yellow_to_green:
+            # Finish the interrupted yellow, then resume the walk.
             yellow_end = self._phase_started_at + self.yellow_seconds
             self._advance_to(min(yellow_end, deadline))
             if traci.simulation.getTime() >= deadline - 1e-9:
                 return
-            current = int(traci.trafficlight.getPhase(self.tls_id))
-            if current == target:
-                return
 
-        if current in self.green_to_yellow:
-            yellow = self.green_to_yellow[current]
-            yellow_start = float(traci.simulation.getTime())
-            self._set_phase(yellow, yellow_start)
-            self._advance_to(min(yellow_start + self.yellow_seconds, deadline))
+        for phase in self.clearance_path(target):
+            start = float(traci.simulation.getTime())
+            if start >= deadline - 1e-9:
+                return
+            duration = (
+                self.left_clearance_seconds
+                if phase in self.green_phases
+                else self.yellow_seconds
+            )
+            self._set_phase(phase, start)
+            self._advance_to(min(start + duration, deadline))
             if traci.simulation.getTime() >= deadline - 1e-9:
-                return
+                return  # resume the remaining path on the next decision step
 
-        self._set_phase(target, float(traci.simulation.getTime()))
+        now = float(traci.simulation.getTime())
+        if now < deadline - 1e-9:
+            self._set_phase(target, now)
+            self._pending_target = None
 
     def _track_vehicles(self) -> None:
         now = float(traci.simulation.getTime())
